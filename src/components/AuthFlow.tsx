@@ -2,7 +2,13 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronDown, Eye, EyeOff } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  AlertCircle,
+} from "lucide-react";
 import { HestonLogo, GoogleIcon, FacebookIcon } from "@/components/HestonLogo";
 
 type AuthStep = "welcome" | "select-role" | "register" | "login" | "splash";
@@ -13,6 +19,18 @@ interface AuthFlowProps {
   initialRole?: AccountRole;
 }
 
+interface RegisterFieldErrors {
+  name?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+}
+
+interface LoginFieldErrors {
+  email?: string;
+  password?: string;
+}
+
 interface RegisterFormState {
   name: string;
   email: string;
@@ -20,6 +38,7 @@ interface RegisterFormState {
   phone: string;
   password: string;
   showPassword: boolean;
+  fieldErrors: RegisterFieldErrors;
   error: string | null;
 }
 
@@ -27,6 +46,7 @@ interface LoginFormState {
   email: string;
   password: string;
   showPassword: boolean;
+  fieldErrors: LoginFieldErrors;
   error: string | null;
 }
 
@@ -45,6 +65,8 @@ const COUNTRY_OPTIONS: CountryOption[] = [
   { code: "ES", dial: "+34", emoji: "🇪🇸" },
   { code: "GB", dial: "+44", emoji: "🇬🇧" },
 ];
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function CountryFlag({ code }: { code: string }) {
   switch (code) {
@@ -135,16 +157,27 @@ function formatPhoneByCountry(rawInput: string, dialCode: string): string {
     return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
   }
 
-  // Formato internacional padrão (até 12 dígitos agrupados)
   const limited = digits.slice(0, 12);
   if (limited.length <= 3) return limited;
   if (limited.length <= 6) return `${limited.slice(0, 3)} ${limited.slice(3)}`;
   return `${limited.slice(0, 3)} ${limited.slice(3, 6)} ${limited.slice(6)}`;
 }
 
+function FieldErrorMessage({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p className="text-red-500 text-xs mt-1.5 ml-4 flex items-center gap-1">
+      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+      <span>{message}</span>
+    </p>
+  );
+}
+
 interface PhoneInputWithDDIProps {
   countryCode: string;
   phone: string;
+  hasError?: boolean;
+  errorMessage?: string;
   onCountryChange: (newCode: string, newDial: string) => void;
   onPhoneChange: (formattedPhone: string) => void;
 }
@@ -152,6 +185,8 @@ interface PhoneInputWithDDIProps {
 function PhoneInputWithDDI({
   countryCode,
   phone,
+  hasError = false,
+  errorMessage,
   onCountryChange,
   onPhoneChange,
 }: PhoneInputWithDDIProps) {
@@ -188,7 +223,13 @@ function PhoneInputWithDDI({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <div className="w-full h-12 rounded-full bg-black border border-zinc-500 focus-within:border-[#087E96] flex items-center transition">
+      <div
+        className={`w-full h-12 rounded-full bg-black border flex items-center transition ${
+          hasError
+            ? "border-red-500 focus-within:border-red-500"
+            : "border-zinc-500 focus-within:border-[#087E96]"
+        }`}
+      >
         <button
           type="button"
           onClick={() => setOpenDropdown((prev) => !prev)}
@@ -202,7 +243,6 @@ function PhoneInputWithDDI({
 
         <input
           type="tel"
-          required
           inputMode="numeric"
           value={phone}
           onChange={handleInputChange}
@@ -213,8 +253,10 @@ function PhoneInputWithDDI({
         />
       </div>
 
+      <FieldErrorMessage message={errorMessage} />
+
       {openDropdown && (
-        <div className="absolute left-0 top-13 mt-1.5 z-50 w-28 rounded-2xl bg-[#09090B] border border-zinc-700 py-1.5 shadow-2xl">
+        <div className="absolute left-0 top-12 mt-1.5 z-50 w-28 rounded-2xl bg-[#09090B] border border-zinc-700 py-1.5 shadow-2xl">
           {COUNTRY_OPTIONS.map((option) => {
             const isSelected = option.code === selectedCountry.code;
             return (
@@ -255,6 +297,7 @@ export default function AuthFlow({
     phone: "",
     password: "",
     showPassword: false,
+    fieldErrors: {},
     error: null,
   });
 
@@ -267,6 +310,7 @@ export default function AuthFlow({
       phone: "",
       password: "",
       showPassword: false,
+      fieldErrors: {},
       error: null,
     });
 
@@ -275,6 +319,7 @@ export default function AuthFlow({
     email: "",
     password: "",
     showPassword: false,
+    fieldErrors: {},
     error: null,
   });
 
@@ -298,6 +343,59 @@ export default function AuthFlow({
     setStep("register");
   }
 
+  function validateRegisterForm(
+    form: RegisterFormState,
+    dialCode: string
+  ): RegisterFieldErrors {
+    const errors: RegisterFieldErrors = {};
+
+    if (!form.name.trim()) {
+      errors.name = "Este campo é obrigatório";
+    }
+
+    if (!form.email.trim()) {
+      errors.email = "Este campo é obrigatório";
+    } else if (!EMAIL_REGEX.test(form.email.trim())) {
+      errors.email = "Insira um e-mail válido";
+    }
+
+    const rawDigits = form.phone.replace(/\D/g, "");
+    if (!rawDigits) {
+      errors.phone = "Este campo é obrigatório";
+    } else if (
+      (dialCode === "+55" && rawDigits.length < 10) ||
+      rawDigits.length < 7
+    ) {
+      errors.phone = "Informe um celular válido com DDD";
+    }
+
+    if (!form.password) {
+      errors.password = "Este campo é obrigatório";
+    } else if (form.password.length < 6) {
+      errors.password = "A senha deve ter pelo menos 6 caracteres";
+    }
+
+    return errors;
+  }
+
+  function validateLoginForm(form: LoginFormState): LoginFieldErrors {
+    const errors: LoginFieldErrors = {};
+
+    if (!form.email.trim()) {
+      errors.email = "Este campo é obrigatório";
+    } else if (!EMAIL_REGEX.test(form.email.trim())) {
+      errors.email = "Insira um e-mail válido";
+    }
+
+    if (!form.password) {
+      errors.password = "Este campo é obrigatório";
+    } else if (form.password.length < 6) {
+      errors.password = "A senha deve ter pelo menos 6 caracteres";
+    }
+
+    return errors;
+  }
+
   async function handleRegisterSubmit(e: React.FormEvent) {
     e.preventDefault();
     const isUser = role === "USUARIO";
@@ -308,19 +406,17 @@ export default function AuthFlow({
       COUNTRY_OPTIONS.find((c) => c.code === activeForm.countryCode) ||
       COUNTRY_OPTIONS[0];
 
-    const rawDigits = activeForm.phone.replace(/\D/g, "");
-    if (
-      (countryObj.dial === "+55" && rawDigits.length < 10) ||
-      rawDigits.length < 7
-    ) {
+    const fieldErrors = validateRegisterForm(activeForm, countryObj.dial);
+    if (Object.keys(fieldErrors).length > 0) {
       setActiveForm((prev) => ({
         ...prev,
-        error: "Informe um número de celular válido com DDD.",
+        fieldErrors,
+        error: null,
       }));
       return;
     }
 
-    setActiveForm((prev) => ({ ...prev, error: null }));
+    setActiveForm((prev) => ({ ...prev, fieldErrors: {}, error: null }));
     setLoading(true);
 
     const fullFormattedPhone = `${countryObj.dial} ${activeForm.phone}`.trim();
@@ -330,8 +426,8 @@ export default function AuthFlow({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: activeForm.name,
-          email: activeForm.email,
+          name: activeForm.name.trim(),
+          email: activeForm.email.trim(),
           phone: fullFormattedPhone,
           password: activeForm.password,
           role,
@@ -364,7 +460,18 @@ export default function AuthFlow({
 
   async function handleLoginSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoginForm((prev) => ({ ...prev, error: null }));
+
+    const fieldErrors = validateLoginForm(loginForm);
+    if (Object.keys(fieldErrors).length > 0) {
+      setLoginForm((prev) => ({
+        ...prev,
+        fieldErrors,
+        error: null,
+      }));
+      return;
+    }
+
+    setLoginForm((prev) => ({ ...prev, fieldErrors: {}, error: null }));
     setLoading(true);
 
     try {
@@ -372,7 +479,7 @@ export default function AuthFlow({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: loginForm.email,
+          email: loginForm.email.trim(),
           password: loginForm.password,
         }),
       });
@@ -452,76 +559,127 @@ export default function AuthFlow({
 
             <form
               key={role}
+              noValidate
               onSubmit={handleRegisterSubmit}
               className="space-y-3.5 w-[300px]"
             >
-              <input
-                type="text"
-                required
-                value={activeForm.name}
-                onChange={(e) =>
-                  setActiveForm((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder={isUser ? "Nome e sobrenome" : "Nome da empresa"}
-                className="w-full h-12 rounded-full bg-black border border-zinc-500 focus:border-[#087E96] px-5 text-xs text-white placeholder-zinc-300 outline-none transition"
-              />
+              {/* Campo Nome / Nome da Empresa */}
+              <div>
+                <input
+                  type="text"
+                  value={activeForm.name}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setActiveForm((prev) => ({
+                      ...prev,
+                      name: val,
+                      fieldErrors: { ...prev.fieldErrors, name: undefined },
+                    }));
+                  }}
+                  placeholder={isUser ? "Nome e sobrenome" : "Nome da empresa"}
+                  className={`w-full h-12 rounded-full bg-black border px-5 text-xs text-white placeholder-zinc-300 outline-none transition ${
+                    activeForm.fieldErrors.name
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-zinc-500 focus:border-[#087E96]"
+                  }`}
+                />
+                <FieldErrorMessage message={activeForm.fieldErrors.name} />
+              </div>
 
-              <input
-                type="email"
-                required
-                value={activeForm.email}
-                onChange={(e) =>
-                  setActiveForm((prev) => ({ ...prev, email: e.target.value }))
-                }
-                placeholder="E-mail"
-                className="w-full h-12 rounded-full bg-black border border-zinc-500 focus:border-[#087E96] px-5 text-xs text-white placeholder-zinc-300 outline-none transition"
-              />
+              {/* Campo E-mail */}
+              <div>
+                <input
+                  type="text"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={activeForm.email}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setActiveForm((prev) => ({
+                      ...prev,
+                      email: val,
+                      fieldErrors: { ...prev.fieldErrors, email: undefined },
+                    }));
+                  }}
+                  placeholder="E-mail"
+                  className={`w-full h-12 rounded-full bg-black border px-5 text-xs text-white placeholder-zinc-300 outline-none transition ${
+                    activeForm.fieldErrors.email
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-zinc-500 focus:border-[#087E96]"
+                  }`}
+                />
+                <FieldErrorMessage message={activeForm.fieldErrors.email} />
+              </div>
 
+              {/* Campo Celular com Bandeira + DDI e Máscara */}
               <PhoneInputWithDDI
                 countryCode={activeForm.countryCode}
                 phone={activeForm.phone}
+                hasError={Boolean(activeForm.fieldErrors.phone)}
+                errorMessage={activeForm.fieldErrors.phone}
                 onCountryChange={(newCode) =>
-                  setActiveForm((prev) => ({ ...prev, countryCode: newCode }))
+                  setActiveForm((prev) => ({
+                    ...prev,
+                    countryCode: newCode,
+                    fieldErrors: { ...prev.fieldErrors, phone: undefined },
+                  }))
                 }
                 onPhoneChange={(formattedPhone) =>
-                  setActiveForm((prev) => ({ ...prev, phone: formattedPhone }))
+                  setActiveForm((prev) => ({
+                    ...prev,
+                    phone: formattedPhone,
+                    fieldErrors: { ...prev.fieldErrors, phone: undefined },
+                  }))
                 }
               />
 
-              <div className="relative w-full">
-                <input
-                  type={activeForm.showPassword ? "text" : "password"}
-                  required
-                  minLength={6}
-                  value={activeForm.password}
-                  onChange={(e) =>
-                    setActiveForm((prev) => ({
-                      ...prev,
-                      password: e.target.value,
-                    }))
-                  }
-                  placeholder="Senha"
-                  className="w-full h-12 rounded-full bg-black border border-zinc-500 focus:border-[#087E96] pl-5 pr-11 text-xs text-white placeholder-zinc-300 outline-none transition"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActiveForm((prev) => ({
-                      ...prev,
-                      showPassword: !prev.showPassword,
-                    }))
-                  }
-                  aria-label={
-                    activeForm.showPassword ? "Ocultar senha" : "Visualizar senha"
-                  }
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white transition"
-                >
-                  {activeForm.showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
+              {/* Campo Senha com Toggle Eye/EyeOff */}
+              <div>
+                <div className="relative w-full">
+                  <input
+                    type={activeForm.showPassword ? "text" : "password"}
+                    value={activeForm.password}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setActiveForm((prev) => ({
+                        ...prev,
+                        password: val,
+                        fieldErrors: {
+                          ...prev.fieldErrors,
+                          password: undefined,
+                        },
+                      }));
+                    }}
+                    placeholder="Senha"
+                    className={`w-full h-12 rounded-full bg-black border pl-5 pr-11 text-xs text-white placeholder-zinc-300 outline-none transition ${
+                      activeForm.fieldErrors.password
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-zinc-500 focus:border-[#087E96]"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveForm((prev) => ({
+                        ...prev,
+                        showPassword: !prev.showPassword,
+                      }))
+                    }
+                    aria-label={
+                      activeForm.showPassword
+                        ? "Ocultar senha"
+                        : "Visualizar senha"
+                    }
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white transition"
+                  >
+                    {activeForm.showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <FieldErrorMessage message={activeForm.fieldErrors.password} />
               </div>
 
               <div className="pt-4">
@@ -575,51 +733,83 @@ export default function AuthFlow({
               </div>
             )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-3.5 w-[300px]">
-              <input
-                type="email"
-                required
-                value={loginForm.email}
-                onChange={(e) =>
-                  setLoginForm((prev) => ({ ...prev, email: e.target.value }))
-                }
-                placeholder="E-mail"
-                className="w-full h-12 rounded-full bg-black border border-zinc-500 focus:border-[#087E96] px-5 text-xs text-white placeholder-zinc-300 outline-none transition"
-              />
-
-              <div className="relative w-full">
+            <form
+              noValidate
+              onSubmit={handleLoginSubmit}
+              className="space-y-3.5 w-[300px]"
+            >
+              {/* Campo E-mail */}
+              <div>
                 <input
-                  type={loginForm.showPassword ? "text" : "password"}
-                  required
-                  value={loginForm.password}
-                  onChange={(e) =>
+                  type="text"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={loginForm.email}
+                  onChange={(e) => {
+                    const val = e.target.value;
                     setLoginForm((prev) => ({
                       ...prev,
-                      password: e.target.value,
-                    }))
-                  }
-                  placeholder="Senha"
-                  className="w-full h-12 rounded-full bg-black border border-zinc-500 focus:border-[#087E96] pl-5 pr-11 text-xs text-white placeholder-zinc-300 outline-none transition"
+                      email: val,
+                      fieldErrors: { ...prev.fieldErrors, email: undefined },
+                    }));
+                  }}
+                  placeholder="E-mail"
+                  className={`w-full h-12 rounded-full bg-black border px-5 text-xs text-white placeholder-zinc-300 outline-none transition ${
+                    loginForm.fieldErrors.email
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-zinc-500 focus:border-[#087E96]"
+                  }`}
                 />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLoginForm((prev) => ({
-                      ...prev,
-                      showPassword: !prev.showPassword,
-                    }))
-                  }
-                  aria-label={
-                    loginForm.showPassword ? "Ocultar senha" : "Visualizar senha"
-                  }
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white transition"
-                >
-                  {loginForm.showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
+                <FieldErrorMessage message={loginForm.fieldErrors.email} />
+              </div>
+
+              {/* Campo Senha */}
+              <div>
+                <div className="relative w-full">
+                  <input
+                    type={loginForm.showPassword ? "text" : "password"}
+                    value={loginForm.password}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLoginForm((prev) => ({
+                        ...prev,
+                        password: val,
+                        fieldErrors: {
+                          ...prev.fieldErrors,
+                          password: undefined,
+                        },
+                      }));
+                    }}
+                    placeholder="Senha"
+                    className={`w-full h-12 rounded-full bg-black border pl-5 pr-11 text-xs text-white placeholder-zinc-300 outline-none transition ${
+                      loginForm.fieldErrors.password
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-zinc-500 focus:border-[#087E96]"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLoginForm((prev) => ({
+                        ...prev,
+                        showPassword: !prev.showPassword,
+                      }))
+                    }
+                    aria-label={
+                      loginForm.showPassword
+                        ? "Ocultar senha"
+                        : "Visualizar senha"
+                    }
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white transition"
+                  >
+                    {loginForm.showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <FieldErrorMessage message={loginForm.fieldErrors.password} />
               </div>
 
               <div className="pt-4">
