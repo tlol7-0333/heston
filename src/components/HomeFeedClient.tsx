@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Zap,
   PlusCircle,
   SendHorizontal,
   Image as ImageIcon,
-  LayoutGrid,
+  Calendar,
   MapPin,
   Smile,
   List,
+  ChevronLeft,
   ChevronRight,
   MoreHorizontal,
   AlertCircle,
@@ -19,6 +20,7 @@ import {
   Heart,
   MessageCircle,
   Share2,
+  Megaphone,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 
@@ -146,6 +148,8 @@ export default function HomeFeedClient({
   const [postContent, setPostContent] = useState("");
   const [postTitle, setPostTitle] = useState("");
   const [showTitleInput, setShowTitleInput] = useState(false);
+  const [eventDate, setEventDate] = useState("");
+  const [showCalendarInput, setShowCalendarInput] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [publishingPost, setPublishingPost] = useState(false);
 
@@ -162,6 +166,10 @@ export default function HomeFeedClient({
 
   // Flashcard expandido ("SAIBA MAIS")
   const [activeFlashcard, setActiveFlashcard] = useState<PostItem | null>(null);
+
+  // Estado das setas de rolagem horizontal dos Flashcards
+  const [canScrollFcLeft, setCanScrollFcLeft] = useState(false);
+  const [canScrollFcRight, setCanScrollFcRight] = useState(true);
 
   // Interações da sidebar direita e curtidas locais
   const [followedIds, setFollowedIds] = useState<Record<string, boolean>>({});
@@ -182,6 +190,29 @@ export default function HomeFeedClient({
     return true;
   });
 
+  const updateFlashcardScrollState = useCallback(() => {
+    const el = flashcardScrollRef.current;
+    if (!el) return;
+    setCanScrollFcLeft(el.scrollLeft > 12);
+    setCanScrollFcRight(
+      el.scrollLeft + el.clientWidth < el.scrollWidth - 12
+    );
+  }, []);
+
+  useEffect(() => {
+    updateFlashcardScrollState();
+    window.addEventListener("resize", updateFlashcardScrollState);
+    return () =>
+      window.removeEventListener("resize", updateFlashcardScrollState);
+  }, [flashcards.length, updateFlashcardScrollState]);
+
+  function scrollFlashcards(direction: "left" | "right") {
+    const el = flashcardScrollRef.current;
+    if (!el) return;
+    const offset = direction === "left" ? -460 : 460;
+    el.scrollBy({ left: offset, behavior: "smooth" });
+  }
+
   async function handleCreatePost(e: React.FormEvent) {
     e.preventDefault();
     if (!postContent.trim()) {
@@ -192,12 +223,16 @@ export default function HomeFeedClient({
     setPostError(null);
     setPublishingPost(true);
 
+    const finalContent = eventDate
+      ? `${postContent.trim()}\n\n📅 Data programada: ${eventDate}`
+      : postContent.trim();
+
     try {
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: postContent.trim(),
+          content: finalContent,
           title: postTitle.trim() || null,
           isFlashcard: false,
         }),
@@ -213,7 +248,9 @@ export default function HomeFeedClient({
       setPosts((prev) => [data.post, ...prev]);
       setPostContent("");
       setPostTitle("");
+      setEventDate("");
       setShowTitleInput(false);
+      setShowCalendarInput(false);
     } catch {
       setPostError("Erro de conexão ao publicar.");
     } finally {
@@ -260,12 +297,6 @@ export default function HomeFeedClient({
       }
     } finally {
       setPublishingFc(false);
-    }
-  }
-
-  function scrollFlashcardsRight() {
-    if (flashcardScrollRef.current) {
-      flashcardScrollRef.current.scrollBy({ left: 320, behavior: "smooth" });
     }
   }
 
@@ -394,8 +425,29 @@ export default function HomeFeedClient({
                     value={postTitle}
                     onChange={(e) => setPostTitle(e.target.value)}
                     placeholder="Título em destaque da publicação (opcional)..."
-                    className="w-full rounded-xl bg-[#111111] border border-zinc-800 focus:border-[#087E96] px-3.5 py-2 text-xs font-bold text-white placeholder-zinc-500 outline-none"
+                    className="w-full rounded-full bg-[#111111] border border-zinc-800 focus:border-[#087E96] px-4 py-2 text-xs font-bold text-white placeholder-zinc-500 outline-none"
                   />
+                )}
+
+                {showCalendarInput && (
+                  <div className="flex items-center gap-2 rounded-full bg-[#111111] border border-zinc-800 px-4 py-1.5 w-fit">
+                    <Calendar className="w-3.5 h-3.5 text-[#087E96]" />
+                    <input
+                      type="date"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      className="bg-transparent text-xs text-white outline-none"
+                    />
+                    {eventDate && (
+                      <button
+                        type="button"
+                        onClick={() => setEventDate("")}
+                        className="text-zinc-400 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 <textarea
@@ -433,11 +485,13 @@ export default function HomeFeedClient({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFlashcardModalOpen(true)}
-                      title="Criar como Flashcard colorido"
-                      className="p-1.5 rounded-full hover:bg-zinc-900 hover:text-white transition"
+                      onClick={() => setShowCalendarInput((prev) => !prev)}
+                      title="Agendar data ou anexar evento"
+                      className={`p-1.5 rounded-full hover:bg-zinc-900 transition ${
+                        showCalendarInput ? "text-[#087E96]" : "hover:text-white"
+                      }`}
                     >
-                      <LayoutGrid className="w-4 h-4" />
+                      <Calendar className="w-4 h-4" />
                     </button>
                     <span className="p-1.5 text-zinc-600">
                       <ImageIcon className="w-4 h-4" />
@@ -464,7 +518,7 @@ export default function HomeFeedClient({
           </form>
         </section>
 
-        {/* Seção de Flashcards / Destaques */}
+        {/* Seção de Flashcards / Destaques (Formato Banner/Outdoor Horizontal sem Scrollbar) */}
         <section className="px-6 py-6 border-b border-zinc-900">
           <div className="flex items-center gap-6 mb-4">
             <div className="flex items-center gap-2 text-xs font-extrabold tracking-wider uppercase text-white">
@@ -486,9 +540,22 @@ export default function HomeFeedClient({
           </div>
 
           <div className="relative flex items-center">
+            {/* Seta para a Esquerda (<) */}
+            {canScrollFcLeft && (
+              <button
+                type="button"
+                onClick={() => scrollFlashcards("left")}
+                aria-label="Flashcards anteriores"
+                className="flex absolute left-2 z-20 w-9 h-9 rounded-full bg-zinc-900/95 hover:bg-zinc-800 border border-zinc-600 items-center justify-center text-white shadow-xl transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
+
             <div
               ref={flashcardScrollRef}
-              className="flex items-stretch gap-4 overflow-x-auto pb-2 scrollbar-none pr-10"
+              onScroll={updateFlashcardScrollState}
+              className="flex items-stretch gap-5 overflow-x-auto no-scrollbar scroll-smooth pr-8"
             >
               {flashcards.map((fc) => {
                 const gradient =
@@ -496,41 +563,49 @@ export default function HomeFeedClient({
                 return (
                   <div
                     key={fc.id}
-                    className={`w-[290px] sm:w-[310px] shrink-0 rounded-3xl bg-gradient-to-br ${gradient} p-5 text-white flex flex-col justify-between shadow-lg relative overflow-hidden`}
+                    className={`min-w-[420px] md:min-w-[475px] h-[190px] shrink-0 rounded-[28px] bg-gradient-to-r ${gradient} p-6 text-white flex flex-col justify-between shadow-xl relative overflow-hidden group`}
                   >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-7 h-7 rounded-full bg-black/30 backdrop-blur flex items-center justify-center text-[11px] font-extrabold border border-white/40">
-                            {fc.author.name[0]}
-                          </div>
-                          <span className="text-xs font-bold truncate">
-                            {fc.author.username.replace(/^@/, "")}
-                          </span>
+                    {/* Elementos gráficos decorativos de estilo Banner/Outdoor à direita */}
+                    <div className="pointer-events-none absolute -right-8 -bottom-10 w-44 h-44 rounded-full bg-white/10 blur-sm" />
+                    <div className="pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 w-24 h-24 rounded-3xl bg-black/15 border border-white/20 backdrop-blur-[2px] flex items-center justify-center rotate-6 group-hover:rotate-0 transition duration-300">
+                      <Megaphone className="w-10 h-10 text-white/85 -rotate-12" />
+                    </div>
+
+                    {/* Topo do Banner: Autor + Selo */}
+                    <div className="relative z-10 flex items-center justify-between gap-2 pr-28">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-black/30 backdrop-blur flex items-center justify-center text-[11px] font-extrabold border border-white/50">
+                          {fc.author.name[0]}
                         </div>
-                        <span className="px-2 py-0.5 rounded-full bg-black/25 text-[9px] font-extrabold uppercase">
-                          {fc.author.role}
+                        <span className="text-xs font-extrabold truncate drop-shadow-sm">
+                          {fc.author.username.replace(/^@/, "")}
                         </span>
                       </div>
+                      <span className="px-2.5 py-0.5 rounded-full bg-black/25 text-[9px] font-extrabold uppercase tracking-wider">
+                        {fc.author.role}
+                      </span>
+                    </div>
 
-                      <h3 className="text-base font-extrabold uppercase leading-snug tracking-tight">
+                    {/* Centro do Banner: Título Marcante + Subtítulo Curto de 1 linha */}
+                    <div className="relative z-10 pr-28 space-y-1">
+                      <h3 className="text-lg md:text-xl font-black uppercase leading-tight tracking-tight drop-shadow-sm line-clamp-2">
                         {fc.title || "DESTAQUE DA COMUNIDADE"}
                       </h3>
-
-                      <p className="text-xs text-white/90 line-clamp-3 leading-relaxed">
+                      <p className="text-xs text-white/95 font-medium truncate">
                         {fc.content}
                       </p>
                     </div>
 
-                    <div className="pt-4 flex items-center justify-between">
+                    {/* Rodapé do Banner: Botão SAIBA MAIS */}
+                    <div className="relative z-10 flex items-center gap-3">
                       <button
                         type="button"
                         onClick={() => setActiveFlashcard(fc)}
-                        className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-extrabold text-[10px] uppercase tracking-wider transition shadow"
+                        className="px-5 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-extrabold text-[10px] uppercase tracking-wider transition shadow-md"
                       >
                         SAIBA MAIS
                       </button>
-                      <span className="text-[10px] text-white/80 font-medium">
+                      <span className="text-[10px] text-white/85 font-semibold">
                         {formatRelativeTime(fc.createdAt)}
                       </span>
                     </div>
@@ -539,12 +614,13 @@ export default function HomeFeedClient({
               })}
             </div>
 
-            {flashcards.length > 1 && (
+            {/* Seta para a Direita (>) */}
+            {canScrollFcRight && flashcards.length > 1 && (
               <button
                 type="button"
-                onClick={scrollFlashcardsRight}
+                onClick={() => scrollFlashcards("right")}
                 aria-label="Próximos flashcards"
-                className="hidden sm:flex absolute right-1 z-10 w-8 h-8 rounded-full bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-600 items-center justify-center text-white shadow-lg transition"
+                className="flex absolute right-2 z-20 w-9 h-9 rounded-full bg-zinc-900/95 hover:bg-zinc-800 border border-zinc-600 items-center justify-center text-white shadow-xl transition"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

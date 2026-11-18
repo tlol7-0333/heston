@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -14,6 +14,9 @@ import {
   Menu,
   Sparkles,
   X,
+  Settings,
+  Bookmark,
+  HelpCircle,
 } from "lucide-react";
 import { HestonLogo } from "@/components/HestonLogo";
 
@@ -48,6 +51,24 @@ export default function AppShell({
   const [showNotifications, setShowNotifications] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Popover do botão "Mais opções" no rodapé da Sidebar
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [infoModal, setInfoModal] = useState<"salvos" | "ajuda" | null>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      ) {
+        setMoreMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -257,41 +278,88 @@ export default function AppShell({
           </div>
         </div>
 
-        {/* Rodapé da Sidebar: Usuário Logado + Botão Sair */}
-        <div className="space-y-3 pt-4 border-t border-zinc-900">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#087E96] to-cyan-400 flex items-center justify-center text-xs font-extrabold text-white shrink-0">
-              {initials || "H"}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs font-bold text-white truncate">
-                  {user.name}
+        {/* Rodapé da Sidebar: Botão "Mais opções" com Popover Elegante */}
+        <div ref={moreMenuRef} className="relative pt-4 border-t border-zinc-900">
+          {moreMenuOpen && (
+            <div className="absolute bottom-16 left-0 w-60 rounded-3xl bg-[#111111] border border-zinc-800 p-2 shadow-2xl z-50 space-y-1">
+              <div className="px-3 py-2.5 border-b border-zinc-800/80 mb-1">
+                <div className="flex items-center justify-between gap-1.5">
+                  <p className="text-xs font-extrabold text-white truncate">
+                    {user.name}
+                  </p>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold shrink-0 ${
+                      user.role === "EMPRESA"
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                        : "bg-[#087E96]/25 text-cyan-300 border border-[#087E96]/50"
+                    }`}
+                  >
+                    {user.role}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 truncate mt-0.5">
+                  {user.username}
                 </p>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold ${
-                    user.role === "EMPRESA"
-                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                      : "bg-[#087E96]/25 text-cyan-300 border border-[#087E96]/50"
-                  }`}
-                >
-                  {user.role}
-                </span>
               </div>
-              <p className="text-[11px] text-zinc-400 truncate">
-                {user.username}
-              </p>
+
+              <Link
+                href="/perfil"
+                onClick={() => setMoreMenuOpen(false)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
+              >
+                <Settings className="w-4 h-4 text-[#087E96]" />
+                <span>Configurações e Perfil</span>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreMenuOpen(false);
+                  setInfoModal("salvos");
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
+              >
+                <Bookmark className="w-4 h-4 text-[#087E96]" />
+                <span>Salvos</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreMenuOpen(false);
+                  setInfoModal("ajuda");
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
+              >
+                <HelpCircle className="w-4 h-4 text-[#087E96]" />
+                <span>Ajuda e Segurança</span>
+              </button>
+
+              <div className="pt-1 border-t border-zinc-800/80">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold text-red-400 hover:bg-red-950/30 transition disabled:opacity-50"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>{loggingOut ? "Saindo..." : "Sair da conta"}</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <button
             type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-full text-xs font-bold text-zinc-300 hover:text-red-400 hover:bg-zinc-900 transition disabled:opacity-50"
+            onClick={() => setMoreMenuOpen((prev) => !prev)}
+            className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
+              moreMenuOpen
+                ? "bg-zinc-900 text-white font-extrabold"
+                : "text-zinc-300 hover:text-white hover:bg-zinc-900/60 font-medium"
+            }`}
           >
-            <LogOut className="w-4 h-4" />
-            <span>{loggingOut ? "Saindo..." : "Sair da conta"}</span>
+            <Menu className="w-5 h-5" />
+            <span>Mais opções</span>
           </button>
         </div>
       </aside>
@@ -337,6 +405,48 @@ export default function AppShell({
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Salvos / Ajuda */}
+      {infoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-3xl bg-[#111111] border border-zinc-800 p-7 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold flex items-center gap-2">
+                {infoModal === "salvos" ? (
+                  <>
+                    <Bookmark className="w-4 h-4 text-[#087E96]" />
+                    <span>Itens e Vagas Salvas</span>
+                  </>
+                ) : (
+                  <>
+                    <HelpCircle className="w-4 h-4 text-[#087E96]" />
+                    <span>Central de Ajuda e Segurança</span>
+                  </>
+                )}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setInfoModal(null)}
+                className="p-1 rounded-full text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {infoModal === "salvos"
+                ? "Suas candidaturas realizadas em 1 clique e publicações curtidas ficam registradas diretamente na sua conta e podem ser acompanhadas nas abas Vagas e Perfil."
+                : "O Heston protege seus dados utilizando senhas com hash bcryptjs, sessões em Cookies HTTP-only assinados via JWT e consultas parametrizadas no PostgreSQL (Neon) via Prisma ORM."}
+            </p>
+            <button
+              type="button"
+              onClick={() => setInfoModal(null)}
+              className="w-full h-10 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-white font-bold text-xs transition"
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}

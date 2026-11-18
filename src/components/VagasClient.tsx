@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Search,
   Plus,
@@ -14,6 +14,8 @@ import {
   X,
   Briefcase,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 
@@ -53,12 +55,12 @@ interface VagasClientProps {
 const FILTER_PILLS = [
   "Todas",
   "Emprego",
-  "Estágio",
-  "Júnior",
-  "Jovem Aprendiz",
   "Cursos",
   "Intercâmbios",
   "Eventos",
+  "Estágio",
+  "Júnior",
+  "Jovem Aprendiz",
   "Remoto",
   "Presencial",
 ];
@@ -108,6 +110,87 @@ interface NewJobErrors {
   description?: string;
 }
 
+interface OpportunityCarouselRowProps {
+  title: string;
+  items: OpportunityItem[];
+  renderCard: (opp: OpportunityItem) => React.ReactNode;
+}
+
+function OpportunityCarouselRow({
+  title,
+  items,
+  renderCard,
+}: OpportunityCarouselRowProps) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(true);
+
+  const updateScrollButtons = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 12);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 12);
+  }, []);
+
+  useEffect(() => {
+    updateScrollButtons();
+    window.addEventListener("resize", updateScrollButtons);
+    return () => window.removeEventListener("resize", updateScrollButtons);
+  }, [items.length, updateScrollButtons]);
+
+  function scrollRow(dir: "left" | "right") {
+    const el = rowRef.current;
+    if (!el) return;
+    const offset = dir === "left" ? -480 : 480;
+    el.scrollBy({ left: offset, behavior: "smooth" });
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <section className="space-y-3.5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-extrabold tracking-tight">{title}</h2>
+        <span className="text-[11px] text-zinc-500 font-semibold">
+          {items.length} oportunidades
+        </span>
+      </div>
+
+      <div className="relative flex items-center">
+        {canLeft && (
+          <button
+            type="button"
+            onClick={() => scrollRow("left")}
+            aria-label={`Voltar em ${title}`}
+            className="flex absolute left-2 z-20 w-9 h-9 rounded-full bg-zinc-900/95 hover:bg-zinc-800 border border-zinc-600 items-center justify-center text-white shadow-2xl transition"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+
+        <div
+          ref={rowRef}
+          onScroll={updateScrollButtons}
+          className="flex items-stretch gap-5 overflow-x-auto no-scrollbar scroll-smooth pr-12"
+        >
+          {items.map((opp) => renderCard(opp))}
+        </div>
+
+        {canRight && items.length > 1 && (
+          <button
+            type="button"
+            onClick={() => scrollRow("right")}
+            aria-label={`Avançar em ${title}`}
+            className="flex absolute right-2 z-20 w-9 h-9 rounded-full bg-zinc-900/95 hover:bg-zinc-800 border border-zinc-600 items-center justify-center text-white shadow-2xl transition"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function VagasClient({
   user,
   initialOpportunities,
@@ -153,12 +236,16 @@ export default function VagasClient({
 
     if (activeFilter === "Todas") return true;
     if (activeFilter === "Remoto") {
-      return opp.location.toLowerCase().includes("remoto") ||
-        opp.location.toLowerCase().includes("online");
+      return (
+        opp.location.toLowerCase().includes("remoto") ||
+        opp.location.toLowerCase().includes("online")
+      );
     }
     if (activeFilter === "Presencial") {
-      return opp.location.toLowerCase().includes("presencial") ||
-        opp.location.toLowerCase().includes("híbrido");
+      return (
+        opp.location.toLowerCase().includes("presencial") ||
+        opp.location.toLowerCase().includes("híbrido")
+      );
     }
 
     return (
@@ -279,57 +366,61 @@ export default function VagasClient({
     }
   }
 
-  function renderOpportunityCard(opp: OpportunityItem) {
+  function renderOpportunityBannerCard(opp: OpportunityItem) {
     const isApplying = applyingId === opp.id;
 
     return (
       <div
         key={opp.id}
-        className={`rounded-3xl bg-gradient-to-br ${opp.cardGradient} p-6 text-white shadow-xl flex flex-col justify-between min-h-[210px] relative overflow-hidden transition hover:scale-[1.01]`}
+        className={`min-w-[420px] md:min-w-[465px] h-[205px] shrink-0 rounded-[28px] bg-gradient-to-r ${opp.cardGradient} p-6 text-white shadow-xl flex items-center gap-5 relative overflow-hidden transition hover:scale-[1.01]`}
       >
-        <div className="space-y-3">
-          {/* Topo do Card: Categoria + Localização */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="px-3 py-1 rounded-full bg-black/35 backdrop-blur-sm text-[11px] font-extrabold uppercase tracking-wider">
-              {opp.category}
-            </span>
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/25 text-[11px] font-bold">
-              <MapPin className="w-3 h-3" />
-              <span>{opp.location}</span>
-            </span>
-          </div>
+        {/* Círculo decorativo sutil de fundo */}
+        <div className="pointer-events-none absolute -right-10 -bottom-10 w-40 h-40 rounded-full bg-white/10 blur-sm" />
 
-          {/* Ícone + Título e Empresa */}
-          <div className="flex items-start gap-4 pt-1">
-            <div className="w-12 h-12 rounded-2xl bg-black/25 backdrop-blur-sm border border-white/25 flex items-center justify-center shrink-0">
-              <Building2 className="w-6 h-6 text-white" />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <h3 className="text-lg sm:text-xl font-extrabold leading-snug drop-shadow-sm">
-                {opp.title} - {opp.companyName}
-              </h3>
-              {opp.salaryInfo && (
-                <p className="text-xs font-bold text-white/90 flex items-center gap-1.5 mt-1">
-                  <Wallet className="w-3.5 h-3.5 shrink-0" />
-                  <span>{opp.salaryInfo}</span>
-                </p>
-              )}
-            </div>
-          </div>
-
-          <p className="text-xs text-white/90 line-clamp-2 leading-relaxed">
-            {opp.description}
-          </p>
+        {/* Emblema Esquerdo (Estilo Banner do Protótipo) */}
+        <div className="w-16 h-16 rounded-2xl bg-black/25 backdrop-blur-sm border border-white/30 flex items-center justify-center shrink-0 shadow-inner">
+          <Building2 className="w-8 h-8 text-white" />
         </div>
 
-        {/* Rodapé do Card: Botões SAIBA MAIS + Candidatura em 1 Clique / Contagem EMPRESA */}
-        <div className="pt-5 flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
+        {/* Conteúdo Direito do Banner */}
+        <div className="flex-1 min-w-0 h-full flex flex-col justify-between relative z-10">
+          {/* Topo: Categoria, Localização e Contagem */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="px-2.5 py-0.5 rounded-full bg-black/35 backdrop-blur-sm text-[10px] font-extrabold uppercase tracking-wider shrink-0">
+                {opp.category}
+              </span>
+              <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/25 text-[10px] font-bold truncate">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span className="truncate">{opp.location}</span>
+              </span>
+            </div>
+
+            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/30 text-[10px] font-extrabold shrink-0">
+              <Users className="w-3 h-3" />
+              <span>{opp.applicationsCount}</span>
+            </span>
+          </div>
+
+          {/* Centro: Título em Destaque + Empresa + Salário/Bolsa em 1 linha */}
+          <div className="space-y-1">
+            <h3 className="text-lg md:text-xl font-black leading-tight tracking-tight drop-shadow-sm line-clamp-2">
+              {opp.title} - {opp.companyName}
+            </h3>
+            <p className="text-xs font-bold text-white/90 truncate flex items-center gap-1.5">
+              <Wallet className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">
+                {opp.salaryInfo || opp.description}
+              </span>
+            </p>
+          </div>
+
+          {/* Rodapé: Botão SAIBA MAIS + Candidatura em 1 Clique */}
+          <div className="flex items-center gap-2.5 pt-1">
             <button
               type="button"
               onClick={() => setSelectedOpportunity(opp)}
-              className="px-4 py-2 rounded-full bg-white hover:bg-zinc-100 text-black font-extrabold text-[11px] uppercase tracking-wider transition shadow"
+              className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-extrabold text-[10px] uppercase tracking-wider transition shadow-md shrink-0"
             >
               SAIBA MAIS
             </button>
@@ -339,7 +430,7 @@ export default function VagasClient({
                 type="button"
                 disabled={opp.hasApplied || isApplying}
                 onClick={() => handleOneClickApply(opp.id)}
-                className={`px-4 py-2 rounded-full text-[11px] font-extrabold flex items-center gap-1.5 transition shadow ${
+                className={`px-3.5 py-1.5 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 transition shadow-md shrink-0 ${
                   opp.hasApplied
                     ? "bg-emerald-950/90 text-emerald-300 border border-emerald-400/60 cursor-default"
                     : "bg-black/80 hover:bg-black text-white border border-white/30"
@@ -363,24 +454,24 @@ export default function VagasClient({
               </button>
             )}
           </div>
-
-          {/* Contagem de candidatos inscritos */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/30 text-[11px] font-extrabold">
-            <Users className="w-3.5 h-3.5" />
-            <span>
-              {opp.applicationsCount}{" "}
-              {opp.applicationsCount === 1 ? "candidato" : "candidatos"}
-            </span>
-          </div>
         </div>
       </div>
     );
   }
 
   const isFiltering = searchTerm.trim() !== "" || activeFilter !== "Todas";
-  const recomendacoesList = filteredOpportunities.slice(0, 2);
-  const maisParaVoceList = filteredOpportunities.slice(2, 4);
-  const pertoDaRegiaoList = filteredOpportunities.slice(4);
+
+  // Divide as oportunidades em 3 fileiras horizontais ricas (5 a 6 cards cada)
+  const chunkSize = Math.max(
+    5,
+    Math.ceil(filteredOpportunities.length / 3)
+  );
+  const recomendacoesList = filteredOpportunities.slice(0, chunkSize);
+  const maisParaVoceList = filteredOpportunities.slice(
+    chunkSize,
+    chunkSize * 2
+  );
+  const pertoDaRegiaoList = filteredOpportunities.slice(chunkSize * 2);
 
   return (
     <AppShell user={user}>
@@ -393,7 +484,7 @@ export default function VagasClient({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Pesquisar por cargo, empresa ou área..."
+              placeholder="Pesquisar..."
               className="w-full h-11 rounded-full bg-zinc-800/80 border border-zinc-700 focus:border-[#087E96] pl-11 pr-5 text-xs text-white placeholder-zinc-400 outline-none transition"
             />
           </div>
@@ -414,8 +505,8 @@ export default function VagasClient({
           )}
         </div>
 
-        {/* Pílulas de Filtro Rápido */}
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+        {/* Pílulas de Filtro Rápido com Borda em Degradê Azul-Ciano para Rosa/Roxo (sem Scrollbar) */}
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
           {FILTER_PILLS.map((pill) => {
             const active = activeFilter === pill;
             return (
@@ -423,19 +514,23 @@ export default function VagasClient({
                 key={pill}
                 type="button"
                 onClick={() => setActiveFilter(pill)}
-                className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition shrink-0 ${
-                  active
-                    ? "bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 text-white shadow"
-                    : "bg-black border border-pink-500/40 hover:border-pink-500 text-zinc-200"
-                }`}
+                className="p-[1.5px] rounded-full bg-gradient-to-r from-[#00B4D8] via-[#7209B7] to-[#F72585] shrink-0 transition hover:scale-[1.03]"
               >
-                {pill}
+                <span
+                  className={`block px-5 py-1.5 rounded-full text-xs font-extrabold transition ${
+                    active
+                      ? "bg-transparent text-white"
+                      : "bg-black hover:bg-zinc-950 text-white"
+                  }`}
+                >
+                  {pill}
+                </span>
               </button>
             );
           })}
         </div>
 
-        {/* Listagem de Vagas em Seções (ou Resultado Filtrado) */}
+        {/* Listagem de Vagas em Carrosséis Horizontais (ou Resultado Filtrado) */}
         {filteredOpportunities.length === 0 ? (
           <div className="rounded-3xl bg-[#111111] border border-zinc-800 p-12 text-center space-y-3">
             <Briefcase className="w-8 h-8 text-[#087E96] mx-auto" />
@@ -457,10 +552,10 @@ export default function VagasClient({
             </button>
           </div>
         ) : isFiltering ? (
-          <section className="space-y-4">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-extrabold">
-                Resultados ({filteredOpportunities.length})
+                Resultados filtrados ({filteredOpportunities.length})
               </h2>
               <button
                 type="button"
@@ -473,47 +568,31 @@ export default function VagasClient({
                 Limpar filtros
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredOpportunities.map(renderOpportunityCard)}
-            </div>
-          </section>
+            <OpportunityCarouselRow
+              title={`Vagas em ${activeFilter}`}
+              items={filteredOpportunities}
+              renderCard={renderOpportunityBannerCard}
+            />
+          </div>
         ) : (
-          <div className="space-y-10">
-            {/* Seção 1: Recomendações */}
-            {recomendacoesList.length > 0 && (
-              <section className="space-y-4">
-                <h2 className="text-lg font-extrabold tracking-tight">
-                  Recomendações
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {recomendacoesList.map(renderOpportunityCard)}
-                </div>
-              </section>
-            )}
+          <div className="space-y-9">
+            <OpportunityCarouselRow
+              title="Recomendações"
+              items={recomendacoesList}
+              renderCard={renderOpportunityBannerCard}
+            />
 
-            {/* Seção 2: Mais para você */}
-            {maisParaVoceList.length > 0 && (
-              <section className="space-y-4">
-                <h2 className="text-lg font-extrabold tracking-tight">
-                  Mais para você
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {maisParaVoceList.map(renderOpportunityCard)}
-                </div>
-              </section>
-            )}
+            <OpportunityCarouselRow
+              title="Mais para você"
+              items={maisParaVoceList}
+              renderCard={renderOpportunityBannerCard}
+            />
 
-            {/* Seção 3: Perto da sua região */}
-            {pertoDaRegiaoList.length > 0 && (
-              <section className="space-y-4">
-                <h2 className="text-lg font-extrabold tracking-tight">
-                  Perto da sua região
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {pertoDaRegiaoList.map(renderOpportunityCard)}
-                </div>
-              </section>
-            )}
+            <OpportunityCarouselRow
+              title="Perto da sua região"
+              items={pertoDaRegiaoList}
+              renderCard={renderOpportunityBannerCard}
+            />
           </div>
         )}
       </div>
@@ -541,7 +620,8 @@ export default function VagasClient({
                 {selectedOpportunity.title}
               </h3>
               <p className="text-xs font-bold text-white/90 mt-1">
-                {selectedOpportunity.companyName} • {selectedOpportunity.location}
+                {selectedOpportunity.companyName} •{" "}
+                {selectedOpportunity.location}
               </p>
             </div>
 
@@ -582,7 +662,7 @@ export default function VagasClient({
 
                   {selectedOpportunity.candidates &&
                   selectedOpportunity.candidates.length > 0 ? (
-                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-44 overflow-y-auto no-scrollbar pr-1">
                       {selectedOpportunity.candidates.map((item) => (
                         <div
                           key={item.id}
