@@ -19,6 +19,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
+import RightSidebarWidgets from "@/components/RightSidebarWidgets";
 
 export interface CandidateInfo {
   id: string;
@@ -142,13 +143,16 @@ function OpportunityCarouselRow({
 }: OpportunityCarouselRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(true);
+  const [canRight, setCanRight] = useState(false);
 
   const updateScrollButtons = useCallback(() => {
     const el = rowRef.current;
     if (!el) return;
-    setCanLeft(el.scrollLeft > 12);
-    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 12);
+    const hasOverflow = el.scrollWidth > el.clientWidth + 8;
+    setCanLeft(hasOverflow && el.scrollLeft > 10);
+    setCanRight(
+      hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 10
+    );
   }, []);
 
   useEffect(() => {
@@ -181,6 +185,11 @@ function OpportunityCarouselRow({
       </div>
 
       <div className="relative flex items-center">
+        {/* Fade Suave em Degradê Preto à Esquerda */}
+        {canLeft && (
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-black via-black/60 to-transparent z-10" />
+        )}
+
         {canLeft && (
           <button
             type="button"
@@ -200,7 +209,12 @@ function OpportunityCarouselRow({
           {items.map((opp, idx) => renderCard(opp, offsetIndex + idx))}
         </div>
 
-        {canRight && items.length > 1 && (
+        {/* Fade Suave em Degradê Preto à Direita */}
+        {canRight && (
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black via-black/60 to-transparent z-10" />
+        )}
+
+        {canRight && (
           <button
             type="button"
             onClick={() => scrollRow("right")}
@@ -219,16 +233,37 @@ export default function VagasClient({
   user,
   initialOpportunities,
 }: VagasClientProps) {
+  const isCompany = user.role === "EMPRESA";
+
   const [opportunities, setOpportunities] =
     useState<OpportunityItem[]>(initialOpportunities);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todas");
+  const [onlyMyCompanyJobs, setOnlyMyCompanyJobs] = useState(false);
   const [showMoreCategories, setShowMoreCategories] = useState(false);
   const [expandedSection, setExpandedSection] = useState<
-    "recomendacoes" | "mais" | "regiao" | null
+    "recomendacoes" | "emprego" | "estagio" | "cursos" | null
   >(null);
 
   const filterBarRef = useRef<HTMLDivElement>(null);
+  const [canFilterLeft, setCanFilterLeft] = useState(false);
+  const [canFilterRight, setCanFilterRight] = useState(false);
+
+  const updateFilterOverflow = useCallback(() => {
+    const el = filterBarRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollWidth > el.clientWidth + 6;
+    setCanFilterLeft(hasOverflow && el.scrollLeft > 6);
+    setCanFilterRight(
+      hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 6
+    );
+  }, []);
+
+  useEffect(() => {
+    updateFilterOverflow();
+    window.addEventListener("resize", updateFilterOverflow);
+    return () => window.removeEventListener("resize", updateFilterOverflow);
+  }, [showMoreCategories, updateFilterOverflow]);
 
   // Estado de candidatura em 1 clique por vaga
   const [applyingId, setApplyingId] = useState<string | null>(null);
@@ -240,9 +275,7 @@ export default function VagasClient({
   // Modal de publicar nova vaga (exclusivo EMPRESA) com estado e validação inline isolados
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [jobTitle, setJobTitle] = useState("");
-  const [jobCompany, setJobCompany] = useState(
-    user.role === "EMPRESA" ? user.name : ""
-  );
+  const [jobCompany, setJobCompany] = useState(isCompany ? user.name : "");
   const [jobCategory, setJobCategory] = useState("Estágio");
   const [jobLocation, setJobLocation] = useState("Remoto • Porto Velho, RO");
   const [jobSalary, setJobSalary] = useState("");
@@ -253,6 +286,13 @@ export default function VagasClient({
   const [creatingJob, setCreatingJob] = useState(false);
 
   const filteredOpportunities = opportunities.filter((opp) => {
+    if (onlyMyCompanyJobs && isCompany) {
+      const isMine =
+        opp.companyId === user.id ||
+        opp.companyName.toLowerCase() === user.name.toLowerCase();
+      if (!isMine) return false;
+    }
+
     const query = searchTerm.trim().toLowerCase();
     const matchesSearch =
       !query ||
@@ -396,7 +436,7 @@ export default function VagasClient({
     }
   }
 
-  /* Card Padronizado na Proporção Exata 2:1 (w-[420px] h-[210px] rounded-[32px]) com Variedade Vibrante de Cores */
+  /* Card Padronizado na Proporção Exata 2:1 (w-[420px] h-[210px] rounded-[32px]) */
   function renderOpportunityBannerCard(
     opp: OpportunityItem,
     colorIndex: number,
@@ -415,14 +455,11 @@ export default function VagasClient({
       >
         <div className="pointer-events-none absolute -right-10 -bottom-10 w-36 h-36 rounded-full bg-white/10 blur-md" />
 
-        {/* Emblema Esquerdo Grande */}
         <div className="w-16 h-16 rounded-2xl bg-black/20 backdrop-blur-sm border border-white/25 flex items-center justify-center shrink-0">
           <Building2 className="w-9 h-9 text-white/90" />
         </div>
 
-        {/* Conteúdo Direito do Card 2:1 */}
         <div className="flex-1 min-w-0 h-full flex flex-col justify-between relative z-10">
-          {/* Topo: Categoria e Candidatos */}
           <div className="flex items-center justify-between gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-black/30 text-[10px] font-extrabold uppercase tracking-wider truncate">
               {opp.category} • {opp.location}
@@ -433,7 +470,6 @@ export default function VagasClient({
             </span>
           </div>
 
-          {/* Centro: Título em Destaque + Empresa */}
           <div className="my-auto">
             <h3 className="text-lg font-extrabold leading-snug tracking-tight drop-shadow-sm line-clamp-2">
               {opp.title} - {opp.companyName}
@@ -445,14 +481,13 @@ export default function VagasClient({
             )}
           </div>
 
-          {/* Base: Botões SAIBA MAIS + Candidatura em 1 Clique */}
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setSelectedOpportunity(opp)}
               className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-black text-[9px] uppercase tracking-wider transition shadow shrink-0"
             >
-              SAIBA MAIS
+              {isCompany ? "VER CANDIDATOS" : "SAIBA MAIS"}
             </button>
 
             {user.role === "USUARIO" && (
@@ -489,54 +524,107 @@ export default function VagasClient({
     );
   }
 
-  const isFiltering = searchTerm.trim() !== "" || activeFilter !== "Todas";
+  const isFiltering =
+    searchTerm.trim() !== "" ||
+    activeFilter !== "Todas" ||
+    onlyMyCompanyJobs;
 
-  const chunkSize = Math.max(
-    5,
-    Math.ceil(filteredOpportunities.length / 3)
+  // Seções específicas por categoria (substituindo "Mais para você")
+  const recomendacoesList = filteredOpportunities.slice(0, 6);
+
+  const vagasEmpregoList = filteredOpportunities.filter(
+    (o) =>
+      o.category.toLowerCase() === "emprego" ||
+      o.category.toLowerCase() === "júnior"
   );
-  const recomendacoesList = filteredOpportunities.slice(0, chunkSize);
-  const maisParaVoceList = filteredOpportunities.slice(
-    chunkSize,
-    chunkSize * 2
+
+  const estagioAprendizList = filteredOpportunities.filter(
+    (o) =>
+      o.category.toLowerCase() === "estágio" ||
+      o.category.toLowerCase() === "jovem aprendiz"
   );
-  const pertoDaRegiaoList = filteredOpportunities.slice(chunkSize * 2);
+
+  const intercambiosCursosList = filteredOpportunities.filter(
+    (o) =>
+      o.category.toLowerCase() === "cursos" ||
+      o.category.toLowerCase() === "intercâmbios" ||
+      o.category.toLowerCase() === "eventos"
+  );
+
+  const totalCandidatesAcrossAll = opportunities.reduce(
+    (acc, item) => acc + item.applicationsCount,
+    0
+  );
 
   return (
-    <AppShell user={user}>
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8 pb-24">
-        {/* Topo: Barra de Pesquisa + Botão Publicar Nova Vaga (EMPRESA) */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:max-w-xl mx-auto">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Pesquisar..."
-              className="w-full h-11 rounded-full bg-zinc-800/80 border border-zinc-700 focus:border-[#087E96] pl-11 pr-5 text-xs text-white placeholder-zinc-400 outline-none transition"
-            />
-          </div>
+    <AppShell
+      user={user}
+      rightSidebar={<RightSidebarWidgets role={user.role} />}
+    >
+      <div className="w-full px-4 sm:px-6 py-8 space-y-8 pb-24">
+        {/* Painel Corporativo em Destaque quando logado como EMPRESA */}
+        {isCompany && (
+          <div className="rounded-3xl bg-gradient-to-r from-[#087E96]/25 via-[#111116] to-purple-900/20 border border-[#087E96]/50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-cyan-300">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Painel de Recrutamento — {user.name}</span>
+              </span>
+              <h2 className="text-base font-extrabold text-white">
+                Divulgue vagas, estágios e cursos com candidatura em 1 clique
+              </h2>
+              <p className="text-xs text-zinc-400">
+                Total de candidaturas recebidas na plataforma:{" "}
+                <strong className="text-white">
+                  {totalCandidatesAcrossAll} candidato(s)
+                </strong>
+              </p>
+            </div>
 
-          {user.role === "EMPRESA" && (
-            <button
-              type="button"
-              onClick={() => {
-                setJobErrors({});
-                setJobApiError(null);
-                setCreateModalOpen(true);
-              }}
-              className="w-full md:w-auto px-6 h-11 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Publicar Nova Vaga</span>
-            </button>
-          )}
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setOnlyMyCompanyJobs((prev) => !prev)}
+                className={`px-4 h-10 rounded-full text-xs font-extrabold border transition ${
+                  onlyMyCompanyJobs
+                    ? "bg-white text-black border-white"
+                    : "bg-black/60 border-zinc-700 text-zinc-200 hover:border-white"
+                }`}
+              >
+                {onlyMyCompanyJobs ? "Vendo Minhas Vagas ✓" : "Minhas Vagas"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setJobErrors({});
+                  setJobApiError(null);
+                  setCreateModalOpen(true);
+                }}
+                className="px-5 h-10 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Publicar Nova Oportunidade</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Topo: Barra de Pesquisa */}
+        <div className="relative max-w-xl mx-auto">
+          <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Pesquisar por cargo, empresa ou modalidade..."
+            className="w-full h-11 rounded-full bg-zinc-800/80 border border-zinc-700 focus:border-[#087E96] pl-11 pr-5 text-xs text-white placeholder-zinc-400 outline-none transition"
+          />
         </div>
 
-        {/* Barra de Filtros do Topo com 5 Categorias Principais + Botão "Mais +" em Cinza e Setas Laterais */}
+        {/* Barra de Filtros do Topo com 5 Categorias Principais + Botão "Mais +" em Cinza e Setas Condicionais */}
         <div className="relative flex items-center justify-center gap-2">
-          {showMoreCategories && (
+          {canFilterLeft && (
             <button
               type="button"
               onClick={() =>
@@ -554,6 +642,7 @@ export default function VagasClient({
 
           <div
             ref={filterBarRef}
+            onScroll={updateFilterOverflow}
             className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 scroll-smooth"
           >
             {PRIMARY_FILTER_PILLS.map((pill) => {
@@ -609,7 +698,7 @@ export default function VagasClient({
             </button>
           </div>
 
-          {showMoreCategories && (
+          {canFilterRight && (
             <button
               type="button"
               onClick={() =>
@@ -626,7 +715,7 @@ export default function VagasClient({
           )}
         </div>
 
-        {/* Listagem de Vagas (Grade Expandida "Ver todas", Filtro ou Carrosséis Horizontais) */}
+        {/* Listagem de Vagas */}
         {filteredOpportunities.length === 0 ? (
           <div className="rounded-3xl bg-[#111111] border border-zinc-800 p-12 text-center space-y-3">
             <Briefcase className="w-8 h-8 text-[#087E96] mx-auto" />
@@ -641,6 +730,7 @@ export default function VagasClient({
               onClick={() => {
                 setSearchTerm("");
                 setActiveFilter("Todas");
+                setOnlyMyCompanyJobs(false);
                 setExpandedSection(null);
               }}
               className="px-5 py-2 rounded-full bg-[#087E96] text-white text-xs font-bold"
@@ -654,9 +744,11 @@ export default function VagasClient({
               <h2 className="text-xl font-extrabold">
                 {expandedSection === "recomendacoes" &&
                   "Todas as Recomendações"}
-                {expandedSection === "mais" && "Todas em Mais para você"}
-                {expandedSection === "regiao" &&
-                  "Todas Perto da sua região"}
+                {expandedSection === "emprego" && "Todas as Vagas de Emprego"}
+                {expandedSection === "estagio" &&
+                  "Todas de Estágio e Jovem Aprendiz"}
+                {expandedSection === "cursos" &&
+                  "Todos os Intercâmbios e Cursos"}
               </h2>
               <button
                 type="button"
@@ -668,12 +760,14 @@ export default function VagasClient({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               {(expandedSection === "recomendacoes"
                 ? recomendacoesList
-                : expandedSection === "mais"
-                ? maisParaVoceList
-                : pertoDaRegiaoList
+                : expandedSection === "emprego"
+                ? vagasEmpregoList
+                : expandedSection === "estagio"
+                ? estagioAprendizList
+                : intercambiosCursosList
               ).map((opp, idx) => renderOpportunityBannerCard(opp, idx, true))}
             </div>
           </section>
@@ -688,13 +782,14 @@ export default function VagasClient({
                 onClick={() => {
                   setSearchTerm("");
                   setActiveFilter("Todas");
+                  setOnlyMyCompanyJobs(false);
                 }}
                 className="text-xs text-[#087E96] hover:underline font-bold"
               >
                 Limpar filtros
               </button>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               {filteredOpportunities.map((opp, idx) =>
                 renderOpportunityBannerCard(opp, idx, true)
               )}
@@ -714,21 +809,32 @@ export default function VagasClient({
             />
 
             <OpportunityCarouselRow
-              title="Mais para você"
-              actionLabel="Ver todas de Mais para você"
-              onViewAll={() => setExpandedSection("mais")}
-              items={maisParaVoceList}
-              offsetIndex={2}
+              title="Vagas de Emprego"
+              actionLabel="Ver todas de Emprego"
+              onViewAll={() => setExpandedSection("emprego")}
+              items={vagasEmpregoList}
+              offsetIndex={1}
               renderCard={(opp, cIdx) =>
                 renderOpportunityBannerCard(opp, cIdx, false)
               }
             />
 
             <OpportunityCarouselRow
-              title="Perto da sua região"
-              actionLabel="Ver todas da região"
-              onViewAll={() => setExpandedSection("regiao")}
-              items={pertoDaRegiaoList}
+              title="Estágio e Jovem Aprendiz"
+              actionLabel="Ver todas de Estágio e Aprendiz"
+              onViewAll={() => setExpandedSection("estagio")}
+              items={estagioAprendizList}
+              offsetIndex={3}
+              renderCard={(opp, cIdx) =>
+                renderOpportunityBannerCard(opp, cIdx, false)
+              }
+            />
+
+            <OpportunityCarouselRow
+              title="Intercâmbios e Cursos"
+              actionLabel="Ver todos os Intercâmbios e Cursos"
+              onViewAll={() => setExpandedSection("cursos")}
+              items={intercambiosCursosList}
               offsetIndex={4}
               renderCard={(opp, cIdx) =>
                 renderOpportunityBannerCard(opp, cIdx, false)
@@ -791,7 +897,7 @@ export default function VagasClient({
               </div>
 
               {/* Visão da Empresa: Lista de Candidatos Inscritos */}
-              {user.role === "EMPRESA" && (
+              {isCompany && (
                 <div className="space-y-2.5 pt-2 border-t border-zinc-800">
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
                     <Users className="w-4 h-4" />
@@ -882,7 +988,7 @@ export default function VagasClient({
       )}
 
       {/* Modal de Publicar Nova Vaga (Exclusivo EMPRESA) com Validação Inline */}
-      {createModalOpen && user.role === "EMPRESA" && (
+      {createModalOpen && isCompany && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4 py-6 overflow-y-auto">
           <div className="w-full max-w-lg rounded-3xl bg-[#111111] border border-zinc-800 p-6 sm:p-7 shadow-2xl space-y-5 my-auto">
             <div className="flex items-center justify-between">

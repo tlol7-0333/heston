@@ -10,6 +10,7 @@ import {
   Briefcase,
   Bell,
   User as UserIcon,
+  Building2,
   LogOut,
   Menu,
   Sparkles,
@@ -84,6 +85,8 @@ export default function AppShell({
   const [reduceMotion, setReduceMotion] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
 
+  const isCompany = user.role === "EMPRESA";
+
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
       if (
@@ -149,13 +152,13 @@ export default function AppShell({
     {
       label: "Perfil",
       href: "/perfil",
-      icon: UserIcon,
+      icon: isCompany ? Building2 : UserIcon,
       active: pathname === "/perfil",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-black text-white">
       {/* Header Mobile */}
       <header className="lg:hidden sticky top-0 z-40 bg-black/95 backdrop-blur border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
         <Link href="/home" className="flex items-center gap-2.5">
@@ -231,192 +234,207 @@ export default function AppShell({
         </div>
       )}
 
-      {/* Sidebar Esquerda (Desktop) */}
-      <aside className="hidden lg:flex lg:w-64 xl:w-72 shrink-0 border-r border-zinc-800/90 min-h-screen sticky top-0 h-screen flex-col justify-between px-6 py-7 select-none">
-        <div className="space-y-8">
-          {/* Logo Heston */}
-          <Link href="/home" className="flex items-center gap-3 px-2">
-            <HestonLogo size={32} />
-            <span className="text-2xl font-extrabold tracking-tight">
-              Heston
-            </span>
-          </Link>
-
-          {/* Links de Navegação na Ordem do Protótipo */}
-          <nav className="space-y-2">
-            {navItems.slice(0, 4).map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
-                    item.active
-                      ? "text-white font-extrabold"
-                      : "text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium"
-                  }`}
-                >
-                  <Icon
-                    className={`w-5 h-5 ${
-                      item.active ? "text-white stroke-[2.4]" : "text-zinc-300"
-                    }`}
-                  />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-
-            {/* Notificações */}
-            <button
-              type="button"
-              onClick={() => setShowNotifications((prev) => !prev)}
-              className="w-full flex items-center gap-4 px-3 py-2.5 rounded-full text-sm text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium transition"
-            >
-              <div className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#087E96]" />
-              </div>
-              <span>Notificações</span>
-            </button>
-
-            {/* Perfil (Avatar Padrão Universal Limpo) */}
-            <Link
-              href="/perfil"
-              className={`flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
-                pathname === "/perfil"
-                  ? "text-white font-extrabold"
-                  : "text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium"
-              }`}
-            >
-              <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center text-zinc-300">
-                <UserIcon className="w-3.5 h-3.5" />
-              </div>
-              <span>Perfil</span>
+      {/* Container Centralizado Estilo X/Twitter Mais Espaçoso (max-w-[1340px]) */}
+      <div className="max-w-[1340px] w-full mx-auto px-2 sm:px-4 lg:px-6 flex justify-center gap-4 xl:gap-6">
+        {/* Sidebar Esquerda (Desktop) */}
+        <aside className="hidden lg:flex w-60 xl:w-64 shrink-0 border-r border-zinc-800/90 min-h-screen sticky top-0 h-screen flex-col justify-between pr-4 py-7 select-none">
+          <div className="space-y-8">
+            {/* Logo Heston */}
+            <Link href="/home" className="flex items-center gap-3 px-2">
+              <HestonLogo size={32} />
+              <span className="text-2xl font-extrabold tracking-tight">
+                Heston
+              </span>
             </Link>
-          </nav>
 
-          {/* Botões de Ação da Sidebar */}
-          <div className="space-y-3 pt-2 px-1">
-            <button
-              type="button"
-              onClick={handlePostarButton}
-              className="w-40 h-10 rounded-full bg-white hover:bg-zinc-200 text-black font-extrabold text-xs transition shadow"
-            >
-              Postar
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setUpgradeModal(true)}
-              className="w-40 h-10 rounded-full bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 hover:opacity-95 text-white font-extrabold text-xs transition shadow"
-            >
-              Aprimorar Conta
-            </button>
-          </div>
-        </div>
-
-        {/* Rodapé da Sidebar: Botão "Mais opções" com Popover Elegante */}
-        <div
-          ref={moreMenuRef}
-          className="relative pt-4 border-t border-zinc-900"
-        >
-          {moreMenuOpen && (
-            <div className="absolute bottom-16 left-0 w-64 rounded-3xl bg-[#111111] border border-zinc-800 p-2 shadow-2xl z-50 space-y-1">
-              <div className="px-3 py-2.5 border-b border-zinc-800/80 mb-1">
-                <div className="flex items-center justify-between gap-1.5">
-                  <p className="text-xs font-extrabold text-white truncate">
-                    {user.name}
-                  </p>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold shrink-0 ${
-                      user.role === "EMPRESA"
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                        : "bg-[#087E96]/25 text-cyan-300 border border-[#087E96]/50"
+            {/* Links de Navegação na Ordem do Protótipo */}
+            <nav className="space-y-2">
+              {navItems.slice(0, 4).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
+                      item.active
+                        ? "text-white font-extrabold"
+                        : "text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium"
                     }`}
                   >
-                    {user.role}
-                  </span>
+                    <Icon
+                      className={`w-5 h-5 ${
+                        item.active
+                          ? "text-white stroke-[2.4]"
+                          : "text-zinc-300"
+                      }`}
+                    />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+
+              {/* Notificações */}
+              <button
+                type="button"
+                onClick={() => setShowNotifications((prev) => !prev)}
+                className="w-full flex items-center gap-4 px-3 py-2.5 rounded-full text-sm text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium transition"
+              >
+                <div className="relative">
+                  <Bell className="w-5 h-5" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#087E96]" />
                 </div>
-                <p className="text-[11px] text-zinc-400 truncate mt-0.5">
-                  {user.username}
-                </p>
-              </div>
+                <span>Notificações</span>
+              </button>
 
+              {/* Perfil (Ícone Building2 para Empresa e User para Usuário) */}
+              <Link
+                href="/perfil"
+                className={`flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
+                  pathname === "/perfil"
+                    ? "text-white font-extrabold"
+                    : "text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium"
+                }`}
+              >
+                <div
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center ${
+                    isCompany
+                      ? "bg-[#087E96]/25 border-[#087E96] text-cyan-300"
+                      : "bg-zinc-800 border-zinc-600 text-zinc-300"
+                  }`}
+                >
+                  {isCompany ? (
+                    <Building2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <UserIcon className="w-3.5 h-3.5" />
+                  )}
+                </div>
+                <span>{isCompany ? "Perfil da Empresa" : "Perfil"}</span>
+              </Link>
+            </nav>
+
+            {/* Botões de Ação da Sidebar */}
+            <div className="space-y-3 pt-2 px-1">
               <button
                 type="button"
-                onClick={() => {
-                  setMoreMenuOpen(false);
-                  setSettingsTab("conta");
-                  setSettingsModalOpen(true);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
+                onClick={handlePostarButton}
+                className="w-44 h-10 rounded-full bg-white hover:bg-zinc-200 text-black font-extrabold text-xs transition shadow"
               >
-                <Settings className="w-4 h-4 text-[#087E96]" />
-                <span>Configurações</span>
+                {isCompany ? "Publicar Novidade" : "Postar"}
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  setMoreMenuOpen(false);
-                  setInfoModal("salvos");
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
+                onClick={() => setUpgradeModal(true)}
+                className="w-44 h-10 rounded-full bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 hover:opacity-95 text-white font-extrabold text-xs transition shadow"
               >
-                <Bookmark className="w-4 h-4 text-[#087E96]" />
-                <span>Salvos</span>
+                {isCompany ? "Heston Empresas+" : "Aprimorar Conta"}
               </button>
+            </div>
+          </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setMoreMenuOpen(false);
-                  setInfoModal("ajuda");
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
-              >
-                <HelpCircle className="w-4 h-4 text-[#087E96]" />
-                <span>Ajuda e Segurança</span>
-              </button>
+          {/* Rodapé da Sidebar: Botão "Mais opções" com Popover Elegante */}
+          <div
+            ref={moreMenuRef}
+            className="relative pt-4 border-t border-zinc-900"
+          >
+            {moreMenuOpen && (
+              <div className="absolute bottom-16 left-0 w-64 rounded-3xl bg-[#111111] border border-zinc-800 p-2 shadow-2xl z-50 space-y-1">
+                <div className="px-3 py-2.5 border-b border-zinc-800/80 mb-1">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <p className="text-xs font-extrabold text-white truncate">
+                      {user.name}
+                    </p>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold shrink-0 ${
+                        isCompany
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          : "bg-[#087E96]/25 text-cyan-300 border border-[#087E96]/50"
+                      }`}
+                    >
+                      {user.role}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 truncate mt-0.5">
+                    {user.username}
+                  </p>
+                </div>
 
-              <div className="pt-1 border-t border-zinc-800/80">
                 <button
                   type="button"
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold text-red-400 hover:bg-red-950/30 transition disabled:opacity-50"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    setSettingsTab("conta");
+                    setSettingsModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span>{loggingOut ? "Saindo..." : "Sair da conta"}</span>
+                  <Settings className="w-4 h-4 text-[#087E96]" />
+                  <span>Configurações</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    setInfoModal("salvos");
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
+                >
+                  <Bookmark className="w-4 h-4 text-[#087E96]" />
+                  <span>Salvos</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    setInfoModal("ajuda");
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
+                >
+                  <HelpCircle className="w-4 h-4 text-[#087E96]" />
+                  <span>Ajuda e Segurança</span>
+                </button>
+
+                <div className="pt-1 border-t border-zinc-800/80">
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold text-red-400 hover:bg-red-950/30 transition disabled:opacity-50"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>{loggingOut ? "Saindo..." : "Sair da conta"}</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <button
-            type="button"
-            onClick={() => setMoreMenuOpen((prev) => !prev)}
-            className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
-              moreMenuOpen
-                ? "bg-zinc-900 text-white font-extrabold"
-                : "text-zinc-300 hover:text-white hover:bg-zinc-900/60 font-medium"
-            }`}
-          >
-            <Menu className="w-5 h-5" />
-            <span>Mais opções</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Coluna Central */}
-      <main className="flex-1 min-w-0">{children}</main>
-
-      {/* Sidebar Direita (Exibida em Home, Explorar e Perfil) */}
-      {rightSidebar && (
-        <aside className="hidden xl:block w-80 shrink-0 border-l border-zinc-800/90 px-6 py-7 space-y-6">
-          {rightSidebar}
+            <button
+              type="button"
+              onClick={() => setMoreMenuOpen((prev) => !prev)}
+              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
+                moreMenuOpen
+                  ? "bg-zinc-900 text-white font-extrabold"
+                  : "text-zinc-300 hover:text-white hover:bg-zinc-900/60 font-medium"
+              }`}
+            >
+              <Menu className="w-5 h-5" />
+              <span>Mais opções</span>
+            </button>
+          </div>
         </aside>
-      )}
+
+        {/* Coluna Central Confortável e Harmoniosa */}
+        <main className="flex-1 min-w-0 max-w-[760px]">{children}</main>
+
+        {/* Sidebar Direita */}
+        {rightSidebar && (
+          <aside className="hidden xl:block w-72 shrink-0 border-l border-zinc-800/90 pl-6 py-7 space-y-6">
+            {rightSidebar}
+          </aside>
+        )}
+      </div>
 
       {/* Modal Amplo de Configurações Gerais da Plataforma (Estilo Twitter/X Settings) */}
       {settingsModalOpen && (
@@ -444,7 +462,7 @@ export default function AppShell({
                     {
                       id: "conta" as SettingsTab,
                       label: "Sua Conta",
-                      icon: UserIcon,
+                      icon: isCompany ? Building2 : UserIcon,
                     },
                     {
                       id: "privacidade" as SettingsTab,
@@ -548,7 +566,7 @@ export default function AppShell({
                     <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between">
                       <div>
                         <span className="text-zinc-400 block text-[11px]">
-                          Nome de Usuário
+                          Identificador (@username)
                         </span>
                         <span className="font-bold text-white text-sm">
                           {user.username}
@@ -626,8 +644,12 @@ export default function AppShell({
                   <div className="space-y-3.5 text-xs">
                     {[
                       {
-                        title: "Perfil Visível para Recrutadores",
-                        desc: "Permitir que empresas parceiras encontrem seu perfil nas buscas e candidaturas.",
+                        title: isCompany
+                          ? "Página Corporativa Pública"
+                          : "Perfil Visível para Recrutadores",
+                        desc: isCompany
+                          ? "Exibir suas vagas abertas e cultura empresarial para todos os talentos da plataforma."
+                          : "Permitir que empresas parceiras encontrem seu perfil nas buscas e candidaturas.",
                         checked: publicProfile,
                         toggle: () => {
                           setPublicProfile((p) => !p);
@@ -645,7 +667,7 @@ export default function AppShell({
                       },
                       {
                         title: "Exibir Status Online nas Comunidades",
-                        desc: "Mostrar indicador verde quando você estiver ativo nos canais de grupo.",
+                        desc: "Mostrar indicador verde quando você estiver ativo nas comunidades.",
                         checked: showActivityStatus,
                         toggle: () => {
                           setShowActivityStatus((p) => !p);
@@ -685,8 +707,12 @@ export default function AppShell({
                   <div className="space-y-3.5 text-xs">
                     {[
                       {
-                        title: "Alertas de Novas Vagas e Estágios",
-                        desc: "Notificar quando novas oportunidades compatíveis forem publicadas.",
+                        title: isCompany
+                          ? "Alertas de Novas Candidaturas em 1 Clique"
+                          : "Alertas de Novas Vagas e Estágios",
+                        desc: isCompany
+                          ? "Notificar imediatamente quando um talento se candidatar às vagas da sua empresa."
+                          : "Notificar quando novas oportunidades compatíveis forem publicadas.",
                         checked: notifyNewJobs,
                         toggle: () => {
                           setNotifyNewJobs((p) => !p);
@@ -817,14 +843,14 @@ export default function AppShell({
                     <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-extrabold text-white text-sm">
-                          Heston MVP — Versão 0.5.0
+                          Heston MVP — Versão 1.0.0 Final
                         </span>
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold">
                           Produção / Neon DB
                         </span>
                       </div>
                       <p className="text-zinc-400 leading-relaxed">
-                        Plataforma web centralizadora de oportunidades educacionais e profissionais (empregos, estágios, cursos, intercâmbios e eventos) com networking em comunidades.
+                        Plataforma web centralizadora de oportunidades educacionais e profissionais (empregos, estágios, cursos, intercâmbios e eventos) com experiência adaptada para Jovens Talentos e Empresas.
                       </p>
                     </div>
 
@@ -866,7 +892,7 @@ export default function AppShell({
 
       {/* Drawer/Modal de Notificações */}
       {showNotifications && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center lg:justify-start lg:pl-72 pt-16 bg-black/50 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 bg-black/50 backdrop-blur-sm px-4">
           <div className="w-full max-w-sm rounded-3xl bg-[#111111] border border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-extrabold flex items-center gap-2">
@@ -885,13 +911,21 @@ export default function AppShell({
               <div className="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
                 <p className="font-bold text-white">Bem-vindo(a) ao Heston!</p>
                 <p className="text-zinc-400 mt-0.5">
-                  Explore os flashcards da comunidade e confira as novas vagas abertas.
+                  {isCompany
+                    ? "Gerencie suas vagas abertas e acompanhe os talentos inscritos em 1 clique."
+                    : "Explore os flashcards da comunidade e confira as novas vagas abertas."}
                 </p>
               </div>
               <div className="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
-                <p className="font-bold text-cyan-300">Novas vagas publicadas</p>
+                <p className="font-bold text-cyan-300">
+                  {isCompany
+                    ? "14 candidaturas recebidas"
+                    : "Novas vagas em Porto Velho, RO"}
+                </p>
                 <p className="text-zinc-400 mt-0.5">
-                  Oportunidades de Estágio, Júnior e Jovem Aprendiz estão disponíveis na aba Vagas.
+                  {isCompany
+                    ? "Confira a lista de candidatos inscritos na aba Vagas ou no seu Perfil Corporativo."
+                    : "Oportunidades de Estágio, Júnior e Jovem Aprendiz estão disponíveis na aba Vagas."}
                 </p>
               </div>
             </div>
@@ -908,7 +942,7 @@ export default function AppShell({
                 {infoModal === "salvos" ? (
                   <>
                     <Bookmark className="w-4 h-4 text-[#087E96]" />
-                    <span>Itens e Vagas Salvas</span>
+                    <span>Itens e Publicações Salvas</span>
                   </>
                 ) : (
                   <>
@@ -927,7 +961,7 @@ export default function AppShell({
             </div>
             <p className="text-xs text-zinc-300 leading-relaxed">
               {infoModal === "salvos"
-                ? "Suas candidaturas realizadas em 1 clique e publicações favoritadas ficam registradas na sua conta para consulta rápida."
+                ? "Suas publicações favoritadas, comunidades e candidaturas ficam registradas na sua conta para consulta rápida."
                 : "O Heston protege seus dados utilizando senhas com hash bcryptjs, sessões em Cookies HTTP-only assinados via JWT e consultas parametrizadas no PostgreSQL (Neon) via Prisma ORM."}
             </p>
             <button
@@ -948,9 +982,13 @@ export default function AppShell({
             <div className="mx-auto w-12 h-12 rounded-full bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 flex items-center justify-center">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-lg font-extrabold">Heston Pro & Empresas+</h3>
+            <h3 className="text-lg font-extrabold">
+              {isCompany
+                ? "Heston Empresas+ & Recrutamento Inteligente"
+                : "Heston Pro & Destaque de Carreira"}
+            </h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              No MVP, todos os recursos de publicação de vagas, flashcards e candidatura simplificada em 1 clique estão liberados gratuitamente para você testar!
+              No MVP, todos os recursos de publicação de vagas, flashcards promocionais, analytics e candidatura simplificada em 1 clique estão liberados gratuitamente!
             </p>
             <button
               type="button"

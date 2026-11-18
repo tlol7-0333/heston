@@ -1,35 +1,55 @@
 "use client";
 
 import React, { useState } from "react";
+import { User as UserIcon, Users } from "lucide-react";
 
-const RECOMMENDED_PROFILES = [
+const RECOMMENDED_FOR_USERS = [
   {
     id: "rec-1",
     username: "oliviacastro_901",
     name: "Olívia Castro",
-    color: "from-rose-500 to-orange-500",
   },
   {
     id: "rec-2",
     username: "arthur_gimax",
     name: "Arthur Henrique Gimax",
-    color: "from-emerald-500 to-teal-600",
   },
   {
     id: "rec-3",
     username: "leilapereira_1951",
     name: "Leila Ferreira Castro",
-    color: "from-purple-500 to-indigo-600",
   },
   {
     id: "rec-4",
     username: "_brunoocalos321",
     name: "Bruno Ferreira",
-    color: "from-amber-500 to-yellow-600",
   },
 ];
 
-const FEATURED_COMMUNITIES = [
+const TALENTS_FOR_COMPANIES = [
+  {
+    id: "tal-1",
+    username: "oliviacastro_dev",
+    name: "Olívia Castro • Front-end & UI",
+  },
+  {
+    id: "tal-2",
+    username: "arthur_dados",
+    name: "Arthur Gimax • Dados & SQL",
+  },
+  {
+    id: "tal-3",
+    username: "leila_uxdesign",
+    name: "Leila Castro • Product Design",
+  },
+  {
+    id: "tal-4",
+    username: "bruno_fullstack",
+    name: "Bruno Ferreira • Node.js & React",
+  },
+];
+
+const COMMUNITIES_FOR_USERS = [
   {
     id: "com-1",
     name: "Empreender+",
@@ -38,7 +58,7 @@ const FEATURED_COMMUNITIES = [
   {
     id: "com-2",
     name: "Vagas em Porto Velho",
-    color: "bg-emerald-500",
+    color: "bg-emerald-600",
   },
   {
     id: "com-3",
@@ -53,23 +73,73 @@ const FEATURED_COMMUNITIES = [
   {
     id: "com-5",
     name: "Projetos em ascensão",
-    color: "bg-orange-500",
+    color: "bg-amber-600",
   },
 ];
 
-export default function RightSidebarWidgets() {
+const COMMUNITIES_FOR_COMPANIES = [
+  {
+    id: "ccom-1",
+    name: "Talentos Tech RO",
+    color: "bg-[#087E96]",
+  },
+  {
+    id: "ccom-2",
+    name: "Recrutamento Universitário",
+    color: "bg-indigo-600",
+  },
+  {
+    id: "ccom-3",
+    name: "Inovação & Startups",
+    color: "bg-purple-600",
+  },
+  {
+    id: "ccom-4",
+    name: "Parceiros Estágio+",
+    color: "bg-emerald-600",
+  },
+  {
+    id: "ccom-5",
+    name: "Feira de Carreiras Heston",
+    color: "bg-amber-600",
+  },
+];
+
+interface RightSidebarWidgetsProps {
+  role?: "USUARIO" | "EMPRESA";
+}
+
+export default function RightSidebarWidgets({
+  role = "USUARIO",
+}: RightSidebarWidgetsProps) {
   const [followedIds, setFollowedIds] = useState<Record<string, boolean>>({});
   const [joinedComms, setJoinedComms] = useState<Record<string, boolean>>({});
 
+  const isCompany = role === "EMPRESA";
+  const profilesList = isCompany
+    ? TALENTS_FOR_COMPANIES
+    : RECOMMENDED_FOR_USERS;
+  const communitiesList = isCompany
+    ? COMMUNITIES_FOR_COMPANIES
+    : COMMUNITIES_FOR_USERS;
+
   return (
     <>
-      {/* Widget Recomendações */}
-      <div className="rounded-3xl border border-zinc-800 bg-[#09090B] p-5 space-y-4">
-        <h2 className="text-base font-extrabold tracking-tight">
-          Recomendações
-        </h2>
+      {/* Widget Recomendações (Usuário) / Talentos em Destaque (Empresa) */}
+      <div className="rounded-3xl border border-zinc-800/90 bg-[#09090B] p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-extrabold tracking-tight">
+            {isCompany ? "Talentos em Destaque" : "Recomendações"}
+          </h2>
+          {isCompany && (
+            <span className="px-2 py-0.5 rounded-full bg-[#087E96]/20 text-cyan-300 text-[9px] font-extrabold">
+              Recrutamento
+            </span>
+          )}
+        </div>
+
         <div className="space-y-3.5">
-          {RECOMMENDED_PROFILES.map((prof) => {
+          {profilesList.map((prof) => {
             const isFollowing = Boolean(followedIds[prof.id]);
             return (
               <div
@@ -77,10 +147,8 @@ export default function RightSidebarWidgets() {
                 className="flex items-center justify-between gap-2"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className={`w-9 h-9 rounded-full bg-gradient-to-tr ${prof.color} flex items-center justify-center text-xs font-extrabold text-white shrink-0`}
-                  >
-                    {prof.name[0]}
+                  <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0">
+                    <UserIcon className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-white truncate">
@@ -105,7 +173,11 @@ export default function RightSidebarWidgets() {
                       : "bg-white hover:bg-zinc-200 text-black"
                   }`}
                 >
-                  {isFollowing ? "Seguindo" : "Seguir"}
+                  {isFollowing
+                    ? "Seguindo"
+                    : isCompany
+                    ? "Conectar"
+                    : "Seguir"}
                 </button>
               </div>
             );
@@ -114,10 +186,10 @@ export default function RightSidebarWidgets() {
       </div>
 
       {/* Widget Comunidades */}
-      <div className="rounded-3xl border border-zinc-800 bg-[#09090B] p-5 space-y-4">
-        <h2 className="text-base font-extrabold tracking-tight">Comunidades</h2>
+      <div className="rounded-3xl border border-zinc-800/90 bg-[#09090B] p-5 space-y-4">
+        <h2 className="text-sm font-extrabold tracking-tight">Comunidades</h2>
         <div className="space-y-3.5">
-          {FEATURED_COMMUNITIES.map((comm) => {
+          {communitiesList.map((comm) => {
             const isJoined = Boolean(joinedComms[comm.id]);
             return (
               <div
@@ -126,9 +198,9 @@ export default function RightSidebarWidgets() {
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className={`w-9 h-9 rounded-full ${comm.color} flex items-center justify-center text-xs font-extrabold text-white shrink-0`}
+                    className={`w-9 h-9 rounded-full ${comm.color} flex items-center justify-center text-white shrink-0`}
                   >
-                    {comm.name[0]}
+                    <Users className="w-4 h-4" />
                   </div>
                   <p className="text-xs font-bold text-white truncate">
                     {comm.name}

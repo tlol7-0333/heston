@@ -843,10 +843,10 @@ export default function AuthFlow({
 
   return (
     <main className="relative min-h-screen w-full bg-black text-white flex flex-col md:flex-row items-center justify-center px-6 py-12 overflow-hidden">
-      {/* Conteúdo de Boas-vindas (fica desfocado quando o modal está aberto) */}
+      {/* Conteúdo de Boas-vindas (fica visível e suavemente desfocado atrás do modal) */}
       <div
-        className={`w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 items-center gap-12 transition duration-200 ${
-          isModalOpen ? "blur-md opacity-70 pointer-events-none select-none" : ""
+        className={`w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 items-center gap-12 transition duration-300 ${
+          isModalOpen ? "blur-md opacity-80 pointer-events-none select-none" : ""
         }`}
       >
         {/* Coluna Esquerda: Logo Heston */}
@@ -921,15 +921,15 @@ export default function AuthFlow({
         </div>
       </div>
 
-      {/* Modal de Seleção de Perfil ("Para quem será esta conta?") */}
+      {/* Modal de Seleção de Perfil ("Para quem será esta conta?") com Glassmorphism Escuro Translúcido */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-          <div className="relative w-full max-w-[440px] rounded-2xl bg-black/90 px-8 py-10 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md px-4">
+          <div className="relative w-full max-w-[460px] rounded-[32px] bg-black/65 backdrop-blur-xl px-10 py-11 border border-white/5 shadow-2xl">
             <button
               type="button"
               onClick={() => setStep("welcome")}
               aria-label="Voltar"
-              className="absolute top-6 left-6 p-1.5 rounded-full text-white hover:bg-zinc-900 transition"
+              className="absolute top-6 left-6 p-1.5 rounded-full text-white hover:bg-white/10 transition"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -942,7 +942,7 @@ export default function AuthFlow({
               <button
                 type="button"
                 onClick={() => selectRoleAndProceed("USUARIO")}
-                className="w-[240px] h-11 rounded-full bg-white hover:bg-zinc-200 text-black font-bold text-xs transition"
+                className="w-[240px] h-11 rounded-full bg-white hover:bg-zinc-200 text-black font-bold text-xs transition shadow-lg"
               >
                 Usuário
               </button>
@@ -950,7 +950,7 @@ export default function AuthFlow({
               <button
                 type="button"
                 onClick={() => selectRoleAndProceed("EMPRESA")}
-                className="w-[240px] h-11 rounded-full bg-white hover:bg-zinc-200 text-black font-bold text-xs transition"
+                className="w-[240px] h-11 rounded-full bg-white hover:bg-zinc-200 text-black font-bold text-xs transition shadow-lg"
               >
                 Empresa
               </button>

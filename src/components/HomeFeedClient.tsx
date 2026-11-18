@@ -27,6 +27,7 @@ import {
   Flag,
   Trash2,
   User as UserIcon,
+  Building2,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 import RightSidebarWidgets from "@/components/RightSidebarWidgets";
@@ -39,6 +40,7 @@ export interface PostItem {
   isFlashcard: boolean;
   cardColor: string | null;
   createdAt: string;
+  isLocalOnlyRegion?: boolean;
   author: {
     id: string;
     name: string;
@@ -60,6 +62,8 @@ interface PollData {
   votedIndex?: number;
 }
 
+const DELETED_POSTS_STORAGE_KEY = "heston_deleted_posts";
+
 const FLASHCARD_THEMES = [
   {
     label: "Azul Oceano",
@@ -79,6 +83,46 @@ const FLASHCARD_THEMES = [
   },
 ];
 
+/* Posts geolocalizados complementares de Porto Velho, RO para enriquecer o filtro "Perto de você" */
+const REGIONAL_PVH_POSTS: PostItem[] = [
+  {
+    id: "regional-pvh-1",
+    title: null,
+    content:
+      "Nesta sexta-feira teremos o encontro presencial da comunidade Devs & Designers de Porto Velho no auditório central! Vamos revisar portfólios e conectar estudantes diretamente com recrutadores locais.",
+    isFlashcard: false,
+    cardColor: null,
+    createdAt: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
+    isLocalOnlyRegion: true,
+    author: {
+      id: "reg-author-1",
+      name: "Polo Tech Porto Velho",
+      username: "@polotech_pvh",
+      role: "EMPRESA",
+      headline: "Ecossistema de Inovação e Tecnologia de Rondônia",
+      location: "Porto Velho, RO",
+    },
+  },
+  {
+    id: "regional-pvh-2",
+    title: null,
+    content:
+      "Acabei de me candidatar em 1 clique para a vaga de Jovem Aprendiz Administrativo aqui em Porto Velho! Muito prático não precisar preencher dezenas de formulários repetidos.",
+    isFlashcard: false,
+    cardColor: null,
+    createdAt: new Date(Date.now() - 1000 * 60 * 115).toISOString(),
+    isLocalOnlyRegion: true,
+    author: {
+      id: "reg-author-2",
+      name: "Camila Nogueira",
+      username: "@camilanogueira_ro",
+      role: "USUARIO",
+      headline: "Estudante de Sistemas de Informação • UNIR",
+      location: "Porto Velho, RO",
+    },
+  },
+];
+
 function formatRelativeTime(isoDate: string): string {
   const date = new Date(isoDate);
   const diffSeconds = Math.max(
@@ -94,26 +138,20 @@ function formatRelativeTime(isoDate: string): string {
   return `há ${diffDays} d`;
 }
 
-/* Placeholder de Mídia Moderno (Skeleton / Wireframe de Imagem Elegante) */
-function PostMediaSkeleton({ label }: { label?: string | null }) {
+/* Placeholder de Mídia Moderno (Skeleton / Wireframe de Imagem sem repetir título) */
+function PostMediaSkeleton() {
   return (
-    <div className="relative w-full h-[240px] max-h-[280px] rounded-2xl overflow-hidden bg-zinc-900/80 border border-zinc-800/80 flex flex-col items-center justify-center p-6 select-none group">
-      {/* Efeito de brilho/shimmer sutil */}
+    <div className="relative w-full h-[230px] max-h-[260px] rounded-2xl overflow-hidden bg-zinc-900/80 border border-zinc-800/80 flex flex-col items-center justify-center p-6 select-none">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(8,126,150,0.12),transparent_70%)] animate-pulse" />
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/60 to-transparent" />
 
-      <div className="relative z-10 flex flex-col items-center text-center space-y-2.5">
-        <div className="w-12 h-12 rounded-2xl bg-zinc-800/90 border border-zinc-700/80 flex items-center justify-center text-zinc-400 animate-pulse">
-          <ImageIcon className="w-6 h-6" />
+      <div className="relative z-10 flex flex-col items-center text-center space-y-2">
+        <div className="w-11 h-11 rounded-2xl bg-zinc-800/90 border border-zinc-700/80 flex items-center justify-center text-zinc-400 animate-pulse">
+          <ImageIcon className="w-5 h-5" />
         </div>
         <span className="text-[11px] font-semibold text-zinc-400 tracking-wide">
           Espaço reservado para mídia da publicação
         </span>
-        {label && (
-          <span className="text-[10px] text-zinc-500 max-w-sm truncate">
-            {label}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -123,13 +161,40 @@ export default function HomeFeedClient({
   user,
   initialPosts,
 }: HomeFeedClientProps) {
-  const [posts, setPosts] = useState<PostItem[]>(initialPosts);
-  const [hiddenPostIds, setHiddenPostIds] = useState<Record<string, boolean>>(
+  const isCompany = user.role === "EMPRESA";
+
+  const [posts, setPosts] = useState<PostItem[]>(() => {
+    const existingIds = new Set(initialPosts.map((p) => p.id));
+    const merged = [...initialPosts];
+    for (const reg of REGIONAL_PVH_POSTS) {
+      if (!existingIds.has(reg.id)) {
+        merged.push(reg);
+      }
+    }
+    return merged;
+  });
+
+  const [deletedPostIds, setDeletedPostIds] = useState<Record<string, boolean>>(
     {}
   );
   const [feedFilter, setFeedFilter] = useState<"para-voce" | "perto">(
     "para-voce"
   );
+
+  // Carregar IDs excluídos do localStorage para nunca voltarem ao navegar entre abas
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(DELETED_POSTS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          setDeletedPostIds(parsed);
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
 
   // Estado isolado da caixa de nova publicação + Enquete (Poll)
   const [postContent, setPostContent] = useState("");
@@ -162,11 +227,11 @@ export default function HomeFeedClient({
   // Flashcard expandido ("SAIBA MAIS")
   const [activeFlashcard, setActiveFlashcard] = useState<PostItem | null>(null);
 
-  // Estado das setas de rolagem horizontal dos Flashcards
+  // Estado das setas condicionais e fade dos Flashcards
   const [canScrollFcLeft, setCanScrollFcLeft] = useState(false);
-  const [canScrollFcRight, setCanScrollFcRight] = useState(true);
+  const [canScrollFcRight, setCanScrollFcRight] = useState(false);
 
-  // Interações dos Posts (Curtir, Salvar, Compartilhar e Menu `...`)
+  // Interações dos Posts
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
   const [copiedPostId, setCopiedPostId] = useState<string | null>(null);
@@ -176,22 +241,34 @@ export default function HomeFeedClient({
   const postInputRef = useRef<HTMLTextAreaElement>(null);
   const flashcardScrollRef = useRef<HTMLDivElement>(null);
 
-  const flashcards = posts.filter((p) => p.isFlashcard);
+  const flashcards = posts.filter(
+    (p) => p.isFlashcard && !deletedPostIds[p.id]
+  );
+
   const feedPosts = posts.filter((p) => {
     if (p.isFlashcard) return false;
-    if (hiddenPostIds[p.id]) return false;
+    if (deletedPostIds[p.id]) return false;
+
     if (feedFilter === "perto") {
-      return p.author.location?.toLowerCase().includes("porto velho") ?? true;
+      const isPvh =
+        p.isLocalOnlyRegion ||
+        p.author.location?.toLowerCase().includes("porto velho") ||
+        p.content.toLowerCase().includes("porto velho") ||
+        p.author.role === "EMPRESA";
+      return Boolean(isPvh);
     }
-    return true;
+
+    // Na aba "Para você", exibe os posts gerais e os criados pelo usuário
+    return !p.isLocalOnlyRegion;
   });
 
   const updateFlashcardScrollState = useCallback(() => {
     const el = flashcardScrollRef.current;
     if (!el) return;
-    setCanScrollFcLeft(el.scrollLeft > 12);
+    const hasOverflow = el.scrollWidth > el.clientWidth + 8;
+    setCanScrollFcLeft(hasOverflow && el.scrollLeft > 10);
     setCanScrollFcRight(
-      el.scrollLeft + el.clientWidth < el.scrollWidth - 12
+      hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 10
     );
   }, []);
 
@@ -204,7 +281,7 @@ export default function HomeFeedClient({
 
   function showToast(msg: string) {
     setToastFeedback(msg);
-    setTimeout(() => setToastFeedback(null), 2600);
+    setTimeout(() => setToastFeedback(null), 3000);
   }
 
   function scrollFlashcards(direction: "left" | "right") {
@@ -251,6 +328,33 @@ export default function HomeFeedClient({
     setCopiedPostId(postId);
     showToast("Link da publicação copiado!");
     setTimeout(() => setCopiedPostId(null), 2000);
+  }
+
+  async function handleDeletePost(postId: string) {
+    setOpenMenuPostId(null);
+
+    const updatedDeleted = { ...deletedPostIds, [postId]: true };
+    setDeletedPostIds(updatedDeleted);
+    setPosts((prev) => prev.filter((item) => item.id !== postId));
+
+    try {
+      window.localStorage.setItem(
+        DELETED_POSTS_STORAGE_KEY,
+        JSON.stringify(updatedDeleted)
+      );
+    } catch {
+      // ignore storage errors
+    }
+
+    try {
+      await fetch(`/api/posts/${postId}`, {
+        method: "DELETE",
+      });
+    } catch {
+      // already persisted in localStorage
+    }
+
+    showToast("Sua publicação foi excluída com sucesso");
   }
 
   async function handleCreatePost(e: React.FormEvent) {
@@ -358,11 +462,11 @@ export default function HomeFeedClient({
   return (
     <AppShell
       user={user}
-      rightSidebar={<RightSidebarWidgets />}
+      rightSidebar={<RightSidebarWidgets role={user.role} />}
       onQuickPostClick={() => postInputRef.current?.focus()}
     >
-      <div className="max-w-3xl mx-auto pb-32 relative">
-        {/* Toast Flutuante de Feedback */}
+      <div className="w-full pb-32 relative">
+        {/* Toast Flutuante Moderno */}
         {toastFeedback && (
           <div className="fixed top-6 right-6 z-50 rounded-full bg-zinc-900/95 border border-[#087E96] px-5 py-2.5 text-xs font-bold text-white shadow-2xl flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-[#087E96]" />
@@ -370,12 +474,22 @@ export default function HomeFeedClient({
           </div>
         )}
 
-        {/* Caixa de Criação de Publicação (Avatar Universal Limpo + Enquete) */}
-        <section className="border-b border-zinc-800/90 px-6 py-5">
+        {/* Caixa de Criação de Publicação Adaptada para Usuário vs. Empresa */}
+        <section className="border-b border-zinc-800/90 px-4 sm:px-6 py-5">
           <form noValidate onSubmit={handleCreatePost}>
             <div className="flex items-start gap-4">
-              <div className="w-11 h-11 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0">
-                <UserIcon className="w-5 h-5" />
+              <div
+                className={`w-11 h-11 rounded-full border flex items-center justify-center shrink-0 ${
+                  isCompany
+                    ? "bg-[#087E96]/20 border-[#087E96] text-cyan-300"
+                    : "bg-zinc-800 border-zinc-700 text-zinc-300"
+                }`}
+              >
+                {isCompany ? (
+                  <Building2 className="w-5 h-5" />
+                ) : (
+                  <UserIcon className="w-5 h-5" />
+                )}
               </div>
 
               <div className="flex-1 space-y-2.5">
@@ -387,7 +501,11 @@ export default function HomeFeedClient({
                     setPostContent(e.target.value);
                     if (postError) setPostError(null);
                   }}
-                  placeholder="Publique os seus interesses..."
+                  placeholder={
+                    isCompany
+                      ? "Publique uma oportunidade, evento ou novidade da sua empresa..."
+                      : "Publique os seus interesses..."
+                  }
                   className={`w-full resize-none rounded-2xl bg-transparent px-2 py-1.5 text-[15px] text-white placeholder-zinc-500 outline-none transition ${
                     postError ? "border border-red-500 px-3" : ""
                   }`}
@@ -467,13 +585,14 @@ export default function HomeFeedClient({
                     </span>
                   </div>
 
+                  {/* Botão Pílula Moderno "Publicar" em Azul-Petróleo */}
                   <button
                     type="submit"
                     disabled={publishingPost}
-                    aria-label="Publicar"
-                    className="w-10 h-10 rounded-full bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 hover:opacity-95 disabled:opacity-50 flex items-center justify-center text-white shadow-lg transition"
+                    className="px-5 h-9 rounded-full bg-[#087E96] hover:bg-[#0a93af] disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-2 shadow-md transition"
                   >
-                    <SendHorizontal className="w-4 h-4" />
+                    <span>{publishingPost ? "Publicando..." : "Publicar"}</span>
+                    <SendHorizontal className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -481,28 +600,41 @@ export default function HomeFeedClient({
           </form>
         </section>
 
-        {/* Seção de Flashcards em Grande Destaque no Topo (w-[480px] h-[240px] rounded-[32px] com Formas Abstratas Modernas) */}
-        <section className="px-6 py-7 border-b border-zinc-900">
-          <div className="flex items-center gap-6 mb-5">
-            <div className="flex items-center gap-2 text-xs font-extrabold tracking-wider uppercase text-white">
-              <Zap className="w-4 h-4 fill-white text-white" />
-              <span>FLASHCARDS</span>
-            </div>
+        {/* Seção de Flashcards com Efeito Fade em Degradê nas Extremidades e Setas Condicionais */}
+        <section className="px-4 sm:px-6 py-7 border-b border-zinc-900">
+          <div className="flex items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 text-xs font-extrabold tracking-wider uppercase text-white">
+                <Zap className="w-4 h-4 fill-white text-white" />
+                <span>FLASHCARDS</span>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setFcErrors({});
-                setFlashcardModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 text-xs font-extrabold tracking-wider uppercase text-white hover:text-[#087E96] transition"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>CRIAR</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFcErrors({});
+                  setFlashcardModalOpen(true);
+                }}
+                className={`flex items-center gap-1.5 text-xs font-extrabold tracking-wider uppercase transition ${
+                  isCompany
+                    ? "px-3.5 py-1 rounded-full bg-[#087E96]/25 border border-[#087E96] text-cyan-300 hover:bg-[#087E96]/40"
+                    : "text-white hover:text-[#087E96]"
+                }`}
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>
+                  {isCompany ? "CRIAR FLASHCARD PROMOCIONAL" : "CRIAR"}
+                </span>
+              </button>
+            </div>
           </div>
 
           <div className="relative flex items-center">
+            {/* Fade em Degradê Preto à Esquerda */}
+            {canScrollFcLeft && (
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-black via-black/60 to-transparent z-10" />
+            )}
+
             {canScrollFcLeft && (
               <button
                 type="button"
@@ -517,7 +649,7 @@ export default function HomeFeedClient({
             <div
               ref={flashcardScrollRef}
               onScroll={updateFlashcardScrollState}
-              className="flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-8"
+              className="flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-12"
             >
               {flashcards.map((fc, idx) => {
                 const isSecond = idx % 2 === 1;
@@ -545,7 +677,7 @@ export default function HomeFeedClient({
                       <HestonLogo size={115} />
                     </div>
 
-                    {/* Topo: Avatar Universal com Aro Ciano + Username + Badge */}
+                    {/* Topo: Avatar Universal + Username + Badge */}
                     <div className="relative z-10 flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-black/30 ring-2 ring-cyan-300/80 backdrop-blur-sm flex items-center justify-center text-white shrink-0">
@@ -589,7 +721,12 @@ export default function HomeFeedClient({
               })}
             </div>
 
-            {canScrollFcRight && flashcards.length > 1 && (
+            {/* Fade em Degradê Preto à Direita */}
+            {canScrollFcRight && (
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black via-black/60 to-transparent z-10" />
+            )}
+
+            {canScrollFcRight && (
               <button
                 type="button"
                 onClick={() => scrollFlashcards("right")}
@@ -602,8 +739,25 @@ export default function HomeFeedClient({
           </div>
         </section>
 
-        {/* Lista de Publicações do Feed (Estilo Twitter/X: Texto Acima, Placeholder de Mídia Compacto Abaixo, 4 Ações Sociais e Menu `...`) */}
-        <section className="px-6 py-6 space-y-6">
+        {/* Indicador de Filtro Ativo quando estiver em "Perto de você" */}
+        {feedFilter === "perto" && (
+          <div className="px-4 sm:px-6 pt-5 flex items-center justify-between">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#087E96]/15 border border-[#087E96]/40 text-xs font-bold text-cyan-300">
+              <MapPin className="w-3.5 h-3.5 text-[#087E96]" />
+              <span>Exibindo publicações próximas a Porto Velho, RO</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFeedFilter("para-voce")}
+              className="text-xs font-bold text-zinc-400 hover:text-white"
+            >
+              Ver feed geral
+            </button>
+          </div>
+        )}
+
+        {/* Lista de Publicações do Feed (Sem título em negrito acima do comentário e sem repetir título no placeholder) */}
+        <section className="px-4 sm:px-6 py-6 space-y-6">
           {feedPosts.map((post, idx) => {
             const isLiked = Boolean(likedPosts[post.id]);
             const isSaved = Boolean(savedPosts[post.id]);
@@ -622,8 +776,18 @@ export default function HomeFeedClient({
                 {/* Cabeçalho do Post + Menu Dropdown Funcional `...` */}
                 <div className="flex items-center justify-between gap-3 relative">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0">
-                      <UserIcon className="w-5 h-5" />
+                    <div
+                      className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 ${
+                        post.author.role === "EMPRESA"
+                          ? "bg-[#087E96]/20 border-[#087E96] text-cyan-300"
+                          : "bg-zinc-800 border-zinc-700 text-zinc-300"
+                      }`}
+                    >
+                      {post.author.role === "EMPRESA" ? (
+                        <Building2 className="w-5 h-5" />
+                      ) : (
+                        <UserIcon className="w-5 h-5" />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -645,6 +809,11 @@ export default function HomeFeedClient({
                         <span className="text-xs text-zinc-500">
                           • {formatRelativeTime(post.createdAt)}
                         </span>
+                        {feedFilter === "perto" && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-[10px] font-bold text-cyan-300">
+                            📍 Porto Velho, RO
+                          </span>
+                        )}
                       </div>
                       {post.author.headline && (
                         <p className="text-[11px] text-zinc-400 truncate mt-0.5">
@@ -710,12 +879,8 @@ export default function HomeFeedClient({
                         <button
                           type="button"
                           onClick={() => {
-                            setHiddenPostIds((prev) => ({
-                              ...prev,
-                              [post.id]: true,
-                            }));
                             setOpenMenuPostId(null);
-                            showToast("Publicação ocultada do seu feed.");
+                            handleDeletePost(post.id);
                           }}
                           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-zinc-200 hover:bg-zinc-800 transition text-left"
                         >
@@ -737,41 +902,26 @@ export default function HomeFeedClient({
                           <span>Denunciar publicação</span>
                         </button>
 
-                        {post.author.id === user.id && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPosts((prev) =>
-                                prev.filter((item) => item.id !== post.id)
-                              );
-                              setOpenMenuPostId(null);
-                              showToast("Publicação excluída.");
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-950/30 transition text-left"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Excluir publicação</span>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePost(post.id)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-950/30 transition text-left"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Excluir publicação</span>
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Texto/Legenda ACIMA da Área da Imagem (Estilo Twitter/X) */}
-                <div className="space-y-1.5">
-                  {post.title && (
-                    <h3 className="text-base font-extrabold text-white tracking-tight">
-                      {post.title}
-                    </h3>
-                  )}
-                  <p className="text-[15px] text-zinc-100 leading-relaxed whitespace-pre-line">
-                    {post.content}
-                  </p>
-                </div>
+                {/* Comentário normal da publicação ACIMA do Placeholder de Mídia (sem título em negrito) */}
+                <p className="text-[15px] text-zinc-100 leading-relaxed whitespace-pre-line">
+                  {post.content}
+                </p>
 
-                {/* Placeholder de Mídia Moderno (Skeleton / Wireframe de Imagem) Abaixo do Texto */}
-                <PostMediaSkeleton label={post.title} />
+                {/* Placeholder de Mídia Moderno (Sem repetir título dentro) */}
+                <PostMediaSkeleton />
 
                 {/* Enquete Interativa (quando houver enquete no post) */}
                 {poll && (
@@ -871,7 +1021,6 @@ export default function HomeFeedClient({
                     </button>
                   </div>
 
-                  {/* Botão Salvar / Favoritar alinhado à direita */}
                   <button
                     type="button"
                     onClick={() => {
@@ -903,7 +1052,7 @@ export default function HomeFeedClient({
           })}
         </section>
 
-        {/* Seletor Flutuante "Para você | Perto de você" com Efeito Glassmorphism Real */}
+        {/* Seletor Flutuante "Para você | Perto de você" com Glassmorphism Real */}
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 rounded-full bg-white/15 backdrop-blur-md p-2 shadow-2xl border border-white/20">
           <button
             type="button"

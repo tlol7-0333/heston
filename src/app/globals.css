@@ -7,13 +7,37 @@
   --foreground: #ffffff;
 }
 
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #27272a #000000;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Ocultar barras de rolagem nativas preservando o scroll suave */
+/* Scrollbar vertical global discreta em Dark Mode */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Ocultar barras de rolagem horizontais nos carrosséis e filtros */
 .no-scrollbar::-webkit-scrollbar,
 .scrollbar-none::-webkit-scrollbar {
   display: none;

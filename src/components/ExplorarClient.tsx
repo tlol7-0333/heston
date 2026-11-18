@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -20,7 +20,6 @@ interface ExploreCardItem {
   title: string;
   category: string;
   summary: string;
-  accent?: string;
 }
 
 const PRIMARY_EXPLORE_TABS = [
@@ -46,7 +45,6 @@ const EXPLORE_CARDS: ExploreCardItem[] = [
     category: "Carreira",
     summary:
       "1. Domine os fundamentos dos projetos no seu GitHub.\n2. Estude a cultura da empresa antes da conversa.\n3. Explique seu raciocínio técnico com clareza.\n4. Demonstre organização com documentação e CHANGELOG.\n5. Mantenha seu perfil Heston atualizado!",
-    accent: "from-[#0052D4] to-[#087E96]",
   },
   {
     id: "exp-2",
@@ -63,7 +61,6 @@ const EXPLORE_CARDS: ExploreCardItem[] = [
     category: "Tecnologia",
     summary:
       "Como estruturar aplicações escaláveis com App Router, Prisma ORM e banco em nuvem Neon seguindo padrões de segurança OWASP.",
-    accent: "from-purple-700 to-pink-600",
   },
   {
     id: "exp-4",
@@ -88,7 +85,6 @@ const EXPLORE_CARDS: ExploreCardItem[] = [
     category: "Carreira",
     summary:
       "Como aproveitar projetos acadêmicos e atividades de extensão como experiência prática relevante no currículo.",
-    accent: "from-emerald-600 to-teal-700",
   },
   {
     id: "exp-7",
@@ -113,7 +109,6 @@ const EXPLORE_CARDS: ExploreCardItem[] = [
     category: "Portfólio",
     summary:
       "Por que manter um histórico de commits limpo (feat, fix, style, chore, docs) diferencia candidatos juniores nos processos seletivos.",
-    accent: "from-amber-600 to-orange-600",
   },
   {
     id: "exp-10",
@@ -121,7 +116,7 @@ const EXPLORE_CARDS: ExploreCardItem[] = [
     title: "Comunidade Devs & Designers da Região Norte",
     category: "Perto de Você",
     summary:
-      "Grupos de estudo ativos na aba Notas para troca de experiências, revisão de código e indicação de vagas locais.",
+      "Comunidades de estudo ativas na aba Notas para troca de experiências, revisão de código e indicação de vagas locais.",
   },
   {
     id: "exp-11",
@@ -162,7 +157,6 @@ const EXPLORE_CARDS: ExploreCardItem[] = [
     category: "Em Alta",
     summary:
       "Panorama das áreas em maior expansão para jovens talentos: Engenharia de Dados, IA Aplicada, Cibersegurança e Front-end Moderno.",
-    accent: "from-[#087E96] to-indigo-700",
   },
 ];
 
@@ -175,6 +169,24 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
   );
 
   const filterScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateFilterOverflow = useCallback(() => {
+    const el = filterScrollRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollWidth > el.clientWidth + 6;
+    setCanScrollLeft(hasOverflow && el.scrollLeft > 6);
+    setCanScrollRight(
+      hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 6
+    );
+  }, []);
+
+  useEffect(() => {
+    updateFilterOverflow();
+    window.addEventListener("resize", updateFilterOverflow);
+    return () => window.removeEventListener("resize", updateFilterOverflow);
+  }, [showMoreTabs, updateFilterOverflow]);
 
   const visibleCards = EXPLORE_CARDS.filter((card) => {
     const matchesSearch =
@@ -188,8 +200,11 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
   });
 
   return (
-    <AppShell user={user} rightSidebar={<RightSidebarWidgets />}>
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-7 pb-24">
+    <AppShell
+      user={user}
+      rightSidebar={<RightSidebarWidgets role={user.role} />}
+    >
+      <div className="w-full px-4 sm:px-6 py-8 space-y-7 pb-24">
         {/* Barra de Pesquisa no Topo */}
         <div className="relative max-w-xl mx-auto">
           <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -202,9 +217,9 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
           />
         </div>
 
-        {/* Barra de Filtros com Botão "Mais +" em Cinza e Setas Laterais */}
+        {/* Barra de Filtros com Botão "Mais +" em Cinza e Setas Condicionais */}
         <div className="relative flex items-center justify-center gap-2">
-          {showMoreTabs && (
+          {canScrollLeft && (
             <button
               type="button"
               onClick={() =>
@@ -222,6 +237,7 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
 
           <div
             ref={filterScrollRef}
+            onScroll={updateFilterOverflow}
             className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 scroll-smooth"
           >
             {PRIMARY_EXPLORE_TABS.map((tab) => {
@@ -261,7 +277,6 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
                 );
               })}
 
-            {/* Botão "Mais" com Caixa e Contorno Cinza */}
             <button
               type="button"
               onClick={() => setShowMoreTabs((prev) => !prev)}
@@ -271,7 +286,7 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
             </button>
           </div>
 
-          {showMoreTabs && (
+          {canScrollRight && (
             <button
               type="button"
               onClick={() =>
@@ -288,32 +303,25 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
           )}
         </div>
 
-        {/* Grid Amplo de 15 Cards (5 Linhas) com Layouts Tipográficos Limpos e Placeholders de Mídia Modernos */}
+        {/* Grid 100% Padronizado de 15 Cards sem Faixa Colorida Superior */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 pt-2">
           {visibleCards.map((card) => (
             <button
               key={card.id}
               type="button"
               onClick={() => setSelectedCard(card)}
-              className="aspect-square rounded-[28px] bg-zinc-900/80 border border-zinc-800/90 hover:border-[#087E96]/70 p-5 flex flex-col justify-between text-left relative overflow-hidden shadow-lg group transition hover:scale-[1.02]"
+              className="aspect-square rounded-3xl bg-zinc-950 border border-zinc-800/80 hover:border-[#087E96]/70 p-5 flex flex-col justify-between text-left relative overflow-hidden shadow-lg group transition hover:scale-[1.02]"
             >
-              {/* Faixa/Glow de Destaque Sutil quando houver accent */}
-              {card.accent && (
-                <div
-                  className={`pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${card.accent}`}
-                />
-              )}
-
               {/* Topo do Card: Categoria + Ícone de Abertura */}
               <div className="w-full flex items-center justify-between gap-2 z-10">
-                <span className="px-2.5 py-1 rounded-full bg-black/60 border border-zinc-700/80 text-[10px] font-extrabold text-cyan-300 uppercase tracking-wider">
+                <span className="px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-extrabold text-cyan-300 uppercase tracking-wider">
                   {card.category}
                 </span>
                 <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition" />
               </div>
 
-              {/* Centro: Placeholder Skeleton de Mídia Elegante (Shimmers + Ícone de Mídia) */}
-              <div className="my-auto w-full py-3 flex flex-col items-center justify-center rounded-2xl bg-black/45 border border-zinc-800/80 animate-pulse">
+              {/* Centro: Placeholder Skeleton de Mídia Padronizado */}
+              <div className="my-auto w-full py-4 flex flex-col items-center justify-center rounded-2xl bg-zinc-900/80 border border-zinc-800/80 animate-pulse">
                 <ImageIcon className="w-6 h-6 text-zinc-500 mb-1" />
                 <span className="text-[9px] text-zinc-500 font-semibold uppercase tracking-widest">
                   Preview de Mídia
@@ -353,7 +361,6 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
               {selectedCard.title}
             </h3>
 
-            {/* Placeholder de Mídia no Modal */}
             <div className="w-full h-36 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex flex-col items-center justify-center gap-1.5 animate-pulse">
               <ImageIcon className="w-6 h-6 text-zinc-500" />
               <span className="text-[10px] text-zinc-500 font-semibold">
