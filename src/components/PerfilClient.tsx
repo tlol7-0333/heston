@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Pencil,
   Users,
@@ -20,15 +21,21 @@ import {
   Eye,
   Search,
   ArrowRight,
+  ArrowLeft,
   Camera,
   Image as ImageIcon,
   Trash2,
   MapPin,
   ShieldCheck,
   Info,
+  AlertCircle,
+  MessageSquare,
+  UserPlus,
+  UserCheck,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 import RightSidebarWidgets from "@/components/RightSidebarWidgets";
+import CustomSelect from "@/components/CustomSelect";
 
 export interface ProfilePostItem {
   id: string;
@@ -76,35 +83,416 @@ interface PortfolioEntry {
   link?: string;
 }
 
+interface PublicDirectoryProfile {
+  handle: string;
+  name: string;
+  username: string;
+  role: "USUARIO" | "EMPRESA";
+  headline: string;
+  bio: string;
+  location: string;
+  followers: string;
+  following: string;
+  posts: ProfilePostItem[];
+  portfolio: PortfolioEntry[];
+}
+
+interface NetworkConnectionItem {
+  id: string;
+  name: string;
+  username: string;
+  role: "USUARIO" | "EMPRESA";
+  headline: string;
+  defaultFollowing: boolean;
+}
+
 interface PerfilClientProps {
   user: SessionUserClient;
   initialPosts: ProfilePostItem[];
   initialApplications: ProfileApplicationItem[];
   initialCompanyJobs: ProfileCompanyJobItem[];
+  visitedUserParam?: string | null;
 }
 
 const DELETED_POSTS_STORAGE_KEY = "heston_deleted_posts";
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+const NETWORK_CONNECTIONS: NetworkConnectionItem[] = [
+  {
+    id: "net-1",
+    name: "Olívia Castro",
+    username: "@oliviacastro_901",
+    role: "USUARIO",
+    headline: "Desenvolvedora Front-end & UI Designer",
+    defaultFollowing: true,
+  },
+  {
+    id: "net-2",
+    name: "EMBRAPE Tecnologia",
+    username: "@embrape_oficial",
+    role: "EMPRESA",
+    headline: "Tecnologia, Dados e Programas de Estágio Regional",
+    defaultFollowing: true,
+  },
+  {
+    id: "net-3",
+    name: "Arthur Henrique Gimax",
+    username: "@arthur_gimax",
+    role: "USUARIO",
+    headline: "Analista de Dados Jr • Python & SQL",
+    defaultFollowing: false,
+  },
+  {
+    id: "net-4",
+    name: "TEFLOP Studio",
+    username: "@teflop_studio",
+    role: "EMPRESA",
+    headline: "Produtora Audiovisual, Design & Mídia Digital",
+    defaultFollowing: true,
+  },
+  {
+    id: "net-5",
+    name: "Pedro Martins",
+    username: "@pedromartins",
+    role: "USUARIO",
+    headline: "Empreendedor Digital & Criador de Conteúdo",
+    defaultFollowing: false,
+  },
+  {
+    id: "net-6",
+    name: "Leila Ferreira Castro",
+    username: "@leilapereira_1951",
+    role: "USUARIO",
+    headline: "Product Designer & Pesquisadora UX",
+    defaultFollowing: true,
+  },
+  {
+    id: "net-7",
+    name: "Polo Tech Porto Velho",
+    username: "@polotech_pvh",
+    role: "EMPRESA",
+    headline: "Ecossistema de Inovação e Tecnologia de Rondônia",
+    defaultFollowing: false,
+  },
+  {
+    id: "net-8",
+    name: "Bruno Ferreira",
+    username: "@_brunoocalos321",
+    role: "USUARIO",
+    headline: "Desenvolvedor Full-Stack • Node.js & React",
+    defaultFollowing: false,
+  },
+];
+
+const PUBLIC_PROFILES_DIRECTORY: Record<string, PublicDirectoryProfile> = {
+  oliviacastro_901: {
+    handle: "oliviacastro_901",
+    name: "Olívia Castro",
+    username: "@oliviacastro_901",
+    role: "USUARIO",
+    headline: "Desenvolvedora Front-end & UI Designer",
+    bio: "Apaixonada por interfaces em Dark Mode, acessibilidade web e sistemas de design com React, Next.js e Tailwind CSS.",
+    location: "Porto Velho, Rondônia, Brasil",
+    followers: "412",
+    following: "84",
+    posts: [
+      {
+        id: "pub-olivia-1",
+        title: null,
+        content:
+          "Acabei de publicar meu novo estudo de caso de UI/UX focado em microinterações e redução de atrito em formulários de candidatura rápida!",
+        isFlashcard: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+      },
+    ],
+    portfolio: [
+      {
+        id: "port-olivia-1",
+        category: "Projeto de Portfólio",
+        title: "Design System Heston UI (Figma + Tailwind)",
+        description:
+          "Biblioteca de componentes acessíveis em Dark Mode com tokens de cor e tipografia responsiva.",
+      },
+    ],
+  },
+  oliviacastro_dev: {
+    handle: "oliviacastro_dev",
+    name: "Olívia Castro",
+    username: "@oliviacastro_dev",
+    role: "USUARIO",
+    headline: "Desenvolvedora Front-end & UI Designer",
+    bio: "Apaixonada por interfaces em Dark Mode, acessibilidade web e sistemas de design com React, Next.js e Tailwind CSS.",
+    location: "Porto Velho, Rondônia, Brasil",
+    followers: "412",
+    following: "84",
+    posts: [
+      {
+        id: "pub-olivia-2",
+        title: null,
+        content:
+          "Construindo interfaces modernas e responsivas para conectar jovens talentos a oportunidades reais na região Norte.",
+        isFlashcard: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+      },
+    ],
+    portfolio: [
+      {
+        id: "port-olivia-2",
+        category: "Projeto de Portfólio",
+        title: "Design System Heston UI (Figma + Tailwind)",
+        description:
+          "Biblioteca de componentes acessíveis em Dark Mode com tokens de cor e tipografia responsiva.",
+      },
+    ],
+  },
+  arthur_gimax: {
+    handle: "arthur_gimax",
+    name: "Arthur Henrique Gimax",
+    username: "@arthur_gimax",
+    role: "USUARIO",
+    headline: "Analista de Dados Jr • Python, SQL & Power BI",
+    bio: "Estudante de tecnologia focado em engenharia e análise de dados, automação de relatórios e modelagem SQL em PostgreSQL.",
+    location: "Porto Velho, Rondônia, Brasil",
+    followers: "195",
+    following: "62",
+    posts: [
+      {
+        id: "pub-arthur-1",
+        title: null,
+        content:
+          "Compartilhei no meu portfólio o dashboard que construí integrando PostgreSQL na nuvem com indicadores regionais de empregabilidade jovem.",
+        isFlashcard: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
+      },
+    ],
+    portfolio: [
+      {
+        id: "port-arthur-1",
+        category: "Projeto de Portfólio",
+        title: "Pipeline de Dados e Analytics em PostgreSQL",
+        description:
+          "Consultas otimizadas e painel analítico de indicadores de contratação e formação técnica.",
+      },
+    ],
+  },
+  embrape: {
+    handle: "embrape",
+    name: "EMBRAPE Tecnologia",
+    username: "@embrape_oficial",
+    role: "EMPRESA",
+    headline: "Tecnologia, Dados e Programas de Estágio Regional",
+    bio: "A EMBRAPE conecta estudantes universitários e jovens talentos a projetos de transformação digital, análise de dados e desenvolvimento web.",
+    location: "Porto Velho, Rondônia, Brasil",
+    followers: "2.840",
+    following: "45",
+    posts: [
+      {
+        id: "pub-embrape-1",
+        title: null,
+        content:
+          "Estamos com inscrições abertas para o nosso programa de Estágio e Trilha Júnior! Candidate-se em 1 clique diretamente pela aba Vagas.",
+        isFlashcard: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+      },
+    ],
+    portfolio: [
+      {
+        id: "corp-embrape-1",
+        category: "Benefício & Cultura",
+        title: "Trilha de Formação e Mentoria para Estagiários",
+        description:
+          "Acompanhamento semanal com engenheiros seniores, bolsa auxílio competitiva e horário flexível para estudantes.",
+      },
+    ],
+  },
+  teflop: {
+    handle: "teflop",
+    name: "TEFLOP Studio",
+    username: "@teflop_studio",
+    role: "EMPRESA",
+    headline: "Produtora Audiovisual, Design & Mídia Digital",
+    bio: "Estúdio criativo especializado em edição de vídeo, motion design e produção de conteúdo digital para marcas e criadores.",
+    location: "Remoto • Porto Velho, RO",
+    followers: "1.650",
+    following: "38",
+    posts: [
+      {
+        id: "pub-teflop-1",
+        title: null,
+        content:
+          "Procuramos jovens criativos apaixonados por storytelling visual, edição dinâmica e motion graphics!",
+        isFlashcard: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+      },
+    ],
+    portfolio: [
+      {
+        id: "corp-teflop-1",
+        category: "Inovação & Projetos",
+        title: "Laboratório Criativo 100% Remoto",
+        description:
+          "Ambiente colaborativo com licença completa de softwares criativos e bônus por projeto entregue.",
+      },
+    ],
+  },
+};
+
+function sanitizeUsernameInput(raw: string): string {
+  const withoutAt = raw.toLowerCase().replace(/^@+/, "");
+  const clean = withoutAt.replace(/[^a-z0-9._]/g, "");
+  return `@${clean}`;
+}
+
+function buildVisitedProfile(
+  rawParam: string,
+  allCompanyJobs: ProfileCompanyJobItem[]
+): {
+  profileData: PublicDirectoryProfile;
+  companyJobs: ProfileCompanyJobItem[];
+} {
+  const cleanKey = rawParam
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, "")
+    .replace(/\s+/g, "");
+
+  if (PUBLIC_PROFILES_DIRECTORY[cleanKey]) {
+    const dir = PUBLIC_PROFILES_DIRECTORY[cleanKey];
+    const jobs = allCompanyJobs.filter((j) =>
+      j.companyName.toLowerCase().includes(cleanKey.slice(0, 5))
+    );
+    return {
+      profileData: dir,
+      companyJobs: jobs.length > 0 ? jobs : allCompanyJobs.slice(0, 2),
+    };
+  }
+
+  // Verificar se corresponde a alguma empresa nas vagas ou na lista de conexões
+  const matchedConn = NETWORK_CONNECTIONS.find(
+    (c) =>
+      c.username.toLowerCase().replace(/^@/, "") === cleanKey ||
+      c.name.toLowerCase().replace(/\s+/g, "") === cleanKey
+  );
+
+  const matchedJobCompany = allCompanyJobs.find(
+    (j) =>
+      j.companyName.toLowerCase() === rawParam.trim().toLowerCase() ||
+      j.companyName.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+        cleanKey.replace(/[^a-z0-9]/g, "")
+  );
+
+  const isVisitedCompany =
+    matchedConn?.role === "EMPRESA" ||
+    Boolean(matchedJobCompany) ||
+    cleanKey.includes("polo") ||
+    cleanKey.includes("embrape") ||
+    cleanKey.includes("teflop") ||
+    cleanKey.includes("food") ||
+    cleanKey.includes("circuito") ||
+    cleanKey.includes("bpm") ||
+    cleanKey.includes("x'entre");
+
+  const displayName =
+    matchedConn?.name ||
+    matchedJobCompany?.companyName ||
+    rawParam
+      .trim()
+      .replace(/^@/, "")
+      .replace(/[._]/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+
+  const displayUsername =
+    matchedConn?.username ||
+    `@${rawParam
+      .trim()
+      .toLowerCase()
+      .replace(/^@+/, "")
+      .replace(/[^a-z0-9._]/g, "_")}`;
+
+  const profileData: PublicDirectoryProfile = {
+    handle: cleanKey,
+    name: displayName,
+    username: displayUsername,
+    role: isVisitedCompany ? "EMPRESA" : "USUARIO",
+    headline:
+      matchedConn?.headline ||
+      (isVisitedCompany
+        ? "Empresa Parceira Verificada • Recrutamento & Inovação"
+        : "Talento & Criador na Comunidade Heston"),
+    bio: isVisitedCompany
+      ? `${displayName} utiliza a plataforma Heston para divulgar vagas, programas de formação e conectar-se diretamente com jovens talentos através da Candidatura Simplificada em 1 Clique.`
+      : `Membro ativo da comunidade Heston compartilhando projetos práticos, experiências acadêmicas e conectando-se com oportunidades de carreira e tecnologia.`,
+    location: "Porto Velho, Rondônia, Brasil",
+    followers: isVisitedCompany ? "1.280" : "318",
+    following: isVisitedCompany ? "42" : "95",
+    posts: [
+      {
+        id: `post-vis-${cleanKey}`,
+        title: null,
+        content: isVisitedCompany
+          ? `Confira nossas oportunidades abertas na plataforma Heston e envie seu perfil com 1 clique!`
+          : `Desenvolvendo novos projetos e participando ativamente das comunidades de tecnologia e carreira no Heston.`,
+        isFlashcard: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 145).toISOString(),
+      },
+    ],
+    portfolio: [
+      {
+        id: `port-vis-${cleanKey}`,
+        category: isVisitedCompany
+          ? "Benefício & Cultura"
+          : "Projeto de Portfólio",
+        title: isVisitedCompany
+          ? `Programa de Jovens Talentos — ${displayName}`
+          : `Portfólio de Projetos Práticos — ${displayName}`,
+        description: isVisitedCompany
+          ? "Cultura voltada ao aprendizado prático, mentoria contínua e desenvolvimento acelerado de carreira."
+          : "Repositório de aplicações web, estudos de caso e certificações técnicas concluídas.",
+      },
+    ],
+  };
+
+  const companyJobs = isVisitedCompany
+    ? allCompanyJobs.filter(
+        (j) =>
+          j.companyName.toLowerCase() === displayName.toLowerCase() ||
+          j.companyName
+            .toLowerCase()
+            .includes(displayName.toLowerCase().slice(0, 4))
+      )
+    : [];
+
+  return {
+    profileData,
+    companyJobs:
+      isVisitedCompany && companyJobs.length === 0
+        ? allCompanyJobs.slice(0, 2)
+        : companyJobs,
+  };
+}
 
 export default function PerfilClient({
   user,
   initialPosts,
   initialApplications,
   initialCompanyJobs,
+  visitedUserParam = null,
 }: PerfilClientProps) {
-  const isCompany = user.role === "EMPRESA";
+  const router = useRouter();
+  const isOwnCompany = user.role === "EMPRESA";
 
   const defaultHeadline =
     user.headline &&
     user.headline !== "Talento na comunidade Heston" &&
     user.headline !== "Empresa parceira na plataforma Heston"
       ? user.headline
-      : isCompany
+      : isOwnCompany
       ? "Tecnologia, Inovação e Desenvolvimento de Jovens Talentos"
       : "Técnico de Informática e Consultor de Vendas";
 
   const defaultBio =
     user.bio ||
-    (isCompany
+    (isOwnCompany
       ? "Empresa parceira na plataforma Heston dedicada a conectar estudantes, estagiários e profissionais juniores a projetos reais de tecnologia, dados e gestão."
       : "Especializado na área de informática há mais de 10 anos, já trabalhei em diversas empresas de tecnologia e fui vice-presidente da GTEC por 3 anos.");
 
@@ -118,10 +506,74 @@ export default function PerfilClient({
     location: defaultLocation,
   });
 
+  // Verificar se estamos visitando o perfil público de outro usuário ou empresa
+  const normalizedVisited = visitedUserParam
+    ? visitedUserParam.trim().toLowerCase().replace(/^@+/, "")
+    : null;
+  const normalizedOwnUsername = profile.username
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, "");
+  const normalizedOwnName = profile.name.trim().toLowerCase();
+
+  const isVisitingThirdParty = Boolean(
+    normalizedVisited &&
+      normalizedVisited !== normalizedOwnUsername &&
+      normalizedVisited !== normalizedOwnName
+  );
+
+  const visitedBundle =
+    isVisitingThirdParty && visitedUserParam
+      ? buildVisitedProfile(visitedUserParam, initialCompanyJobs)
+      : null;
+
+  const activeRole: "USUARIO" | "EMPRESA" =
+    isVisitingThirdParty && visitedBundle
+      ? visitedBundle.profileData.role
+      : user.role;
+  const isCompany = activeRole === "EMPRESA";
+
+  const displayProfile =
+    isVisitingThirdParty && visitedBundle
+      ? visitedBundle.profileData
+      : {
+          name: profile.name,
+          username: profile.username,
+          headline: profile.headline,
+          bio: profile.bio,
+          location: profile.location,
+          followers: isOwnCompany ? "1.420" : "280",
+          following: isOwnCompany ? "48" : "36",
+        };
+
+  // Estado de seguir o perfil visitado
+  const [followingVisited, setFollowingVisited] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Modal de Seguidores / Seguindo (Estilo Instagram)
+  const [followersModalType, setFollowersModalType] = useState<
+    "seguidores" | "seguindo" | null
+  >(null);
+  const [followersSearch, setFollowersSearch] = useState("");
+  const [networkFollowingMap, setNetworkFollowingMap] = useState<
+    Record<string, boolean>
+  >(() => {
+    const initial: Record<string, boolean> = {};
+    for (const item of NETWORK_CONNECTIONS) {
+      initial[item.id] = item.defaultFollowing;
+    }
+    return initial;
+  });
+
   // Abas inferiores diferenciadas para USUARIO vs. EMPRESA
   const [bottomTab, setBottomTab] = useState<string>(
     isCompany ? "vagas" : "publicacoes"
   );
+
+  useEffect(() => {
+    setBottomTab(isCompany ? "vagas" : "publicacoes");
+  }, [isCompany, visitedUserParam]);
 
   const [myPosts, setMyPosts] = useState<ProfilePostItem[]>(initialPosts);
   const [deletedPostIds, setDeletedPostIds] = useState<Record<string, boolean>>(
@@ -142,9 +594,11 @@ export default function PerfilClient({
     }
   }, []);
 
-  // Modal de edição no Lápis (com botões de upload de foto/banner com aviso MVP)
+  // Modal de edição no Lápis (com edição de @username e regra de cooldown de 14 dias)
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editName, setEditName] = useState(profile.name);
+  const [editUsername, setEditUsername] = useState(profile.username);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [editHeadline, setEditHeadline] = useState(profile.headline);
   const [editBio, setEditBio] = useState(profile.bio);
   const [editLocation, setEditLocation] = useState(profile.location);
@@ -157,7 +611,7 @@ export default function PerfilClient({
     "pill1" | "pill2" | "pill3" | null
   >(null);
   const [interests, setInterests] = useState<string[]>(
-    isCompany
+    isOwnCompany
       ? [
           "Desenvolvimento de Software",
           "Análise de Dados & BI",
@@ -179,13 +633,13 @@ export default function PerfilClient({
   // Modal Unificado de Portfólio (para USUARIO) ou Cultura & Benefícios (para EMPRESA)
   const [portfolioModalOpen, setPortfolioModalOpen] = useState(false);
   const [entryCategory, setEntryCategory] = useState(
-    isCompany ? "Benefício & Cultura" : "Projeto de Portfólio"
+    isOwnCompany ? "Benefício & Cultura" : "Projeto de Portfólio"
   );
   const [entryTitle, setEntryTitle] = useState("");
   const [entryDesc, setEntryDesc] = useState("");
   const [entryLink, setEntryLink] = useState("");
   const [entries, setEntries] = useState<PortfolioEntry[]>(
-    isCompany
+    isOwnCompany
       ? [
           {
             id: "corp-1",
@@ -214,6 +668,8 @@ export default function PerfilClient({
 
   function openEditModal() {
     setEditName(profile.name);
+    setEditUsername(profile.username);
+    setUsernameError(null);
     setEditHeadline(profile.headline);
     setEditBio(profile.bio);
     setEditLocation(profile.location);
@@ -224,6 +680,41 @@ export default function PerfilClient({
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!editName.trim()) return;
+
+    const formattedUsername = sanitizeUsernameInput(editUsername);
+    const isChangingUsername =
+      formattedUsername.toLowerCase() !== profile.username.toLowerCase();
+
+    if (isChangingUsername) {
+      if (formattedUsername.replace(/^@/, "").length < 3) {
+        setUsernameError(
+          "O @username deve conter pelo menos 3 caracteres válidos."
+        );
+        return;
+      }
+
+      // Verificar cooldown de 14 dias no localStorage
+      const cooldownKey = `heston_username_cooldown_${user.id}`;
+      try {
+        const lastUpdatedStr = window.localStorage.getItem(cooldownKey);
+        if (lastUpdatedStr) {
+          const lastUpdatedMs = Number(lastUpdatedStr);
+          if (
+            !Number.isNaN(lastUpdatedMs) &&
+            Date.now() - lastUpdatedMs < FOURTEEN_DAYS_MS
+          ) {
+            setUsernameError(
+              "Limite atingido: você já alterou seu @ recentemente. Aguarde o prazo de 14 dias para alterar novamente."
+            );
+            return;
+          }
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    setUsernameError(null);
     setSavingProfile(true);
 
     try {
@@ -232,6 +723,7 @@ export default function PerfilClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editName.trim(),
+          username: formattedUsername,
           headline: editHeadline.trim(),
           bio: editBio.trim(),
           location: editLocation.trim(),
@@ -239,16 +731,37 @@ export default function PerfilClient({
       });
 
       const data = await res.json();
-      if (res.ok && data.user) {
+      if (!res.ok) {
+        if (res.status === 400 || res.status === 409) {
+          setUsernameError(
+            data.error || "Não foi possível alterar o @username."
+          );
+        }
+        setSavingProfile(false);
+        return;
+      }
+
+      if (data.user) {
+        if (isChangingUsername) {
+          try {
+            window.localStorage.setItem(
+              `heston_username_cooldown_${user.id}`,
+              String(Date.now())
+            );
+          } catch {
+            // ignore storage errors
+          }
+        }
+
         setProfile({
           name: data.user.name,
-          username: data.user.username,
+          username: data.user.username || formattedUsername,
           headline: data.user.headline || editHeadline.trim(),
           bio: data.user.bio || editBio.trim(),
           location: data.user.location || editLocation.trim(),
         });
         setEditModalOpen(false);
-        triggerToast("Perfil atualizado no banco de dados!");
+        triggerToast("Perfil atualizado com sucesso!");
       }
     } finally {
       setSavingProfile(false);
@@ -299,17 +812,59 @@ export default function PerfilClient({
     setEntryLink("");
     setPortfolioModalOpen(false);
     triggerToast(
-      isCompany
+      isOwnCompany
         ? "Item adicionado em Sobre & Cultura!"
         : "Adicionado ao seu Portfólio!"
     );
   }
 
-  const visibleMyPosts = myPosts.filter((p) => !deletedPostIds[p.id]);
+  const visiblePosts =
+    isVisitingThirdParty && visitedBundle
+      ? visitedBundle.profileData.posts
+      : myPosts.filter((p) => !deletedPostIds[p.id]);
+
+  const visibleEntries =
+    isVisitingThirdParty && visitedBundle
+      ? visitedBundle.profileData.portfolio
+      : entries;
+
+  const visibleCompanyJobs =
+    isVisitingThirdParty && visitedBundle
+      ? visitedBundle.companyJobs
+      : initialCompanyJobs;
+
+  const filteredNetworkConnections = NETWORK_CONNECTIONS.filter((item) => {
+    const q = followersSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      item.name.toLowerCase().includes(q) ||
+      item.username.toLowerCase().includes(q) ||
+      item.headline.toLowerCase().includes(q)
+    );
+  });
+
+  const isFollowingCurrentVisited = visitedBundle
+    ? Boolean(followingVisited[visitedBundle.profileData.handle])
+    : false;
+
+  const portfolioSelectOptions = isOwnCompany
+    ? [
+        { value: "Benefício & Cultura", label: "Benefício & Cultura" },
+        { value: "Programa de Formação", label: "Programa de Formação" },
+        { value: "Inovação & Projetos", label: "Inovação & Projetos" },
+      ]
+    : [
+        { value: "Projeto de Portfólio", label: "Projeto de Portfólio" },
+        {
+          value: "Atividade Acadêmica / Curso",
+          label: "Atividade Acadêmica / Curso",
+        },
+        { value: "Experiência Prática", label: "Experiência Prática" },
+      ];
 
   return (
     <AppShell
-      user={{ ...user, name: profile.name }}
+      user={{ ...user, name: profile.name, username: profile.username }}
       rightSidebar={<RightSidebarWidgets role={user.role} />}
     >
       <div className="w-full pb-28 relative">
@@ -318,6 +873,23 @@ export default function PerfilClient({
           <div className="fixed top-6 right-6 z-50 rounded-full bg-zinc-900/95 border border-[#087E96] px-5 py-2.5 text-xs font-bold text-white shadow-2xl flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-[#087E96]" />
             <span>{toastMsg}</span>
+          </div>
+        )}
+
+        {/* Barra de Retorno quando estiver visitando o perfil público de terceiro */}
+        {isVisitingThirdParty && (
+          <div className="px-6 py-3.5 bg-zinc-950/90 border-b border-zinc-800/90 flex items-center justify-between gap-3">
+            <Link
+              href="/perfil"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#087E96] text-xs font-extrabold text-white transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#087E96]" />
+              <span>← Voltar ao meu perfil</span>
+            </Link>
+            <span className="text-[11px] font-semibold text-zinc-400">
+              Visualizando perfil público de{" "}
+              <strong className="text-white">{displayProfile.username}</strong>
+            </span>
           </div>
         )}
 
@@ -334,8 +906,8 @@ export default function PerfilClient({
 
         {/* Área Principal do Perfil */}
         <div className="px-6 sm:px-8">
-          {/* Avatar Universal (Building2 para Empresa / User para Usuário) + Botão Lápis */}
-          <div className="flex items-end justify-between -mt-16 sm:-mt-20 mb-4 relative z-10">
+          {/* Avatar Universal (Building2 para Empresa / User para Usuário) + Botão de Ação */}
+          <div className="flex items-end justify-between -mt-16 sm:-mt-20 mb-4 relative z-10 gap-3 flex-wrap">
             <div
               className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-black flex items-center justify-center overflow-hidden shadow-2xl ${
                 isCompany
@@ -350,23 +922,69 @@ export default function PerfilClient({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={openEditModal}
-              title="Editar perfil"
-              className="px-4 py-2 rounded-full bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-bold flex items-center gap-2 transition mb-2 shadow"
-            >
-              <Pencil className="w-3.5 h-3.5 text-[#087E96]" />
-              <span>Editar perfil</span>
-            </button>
+            {isVisitingThirdParty && visitedBundle ? (
+              <div className="flex items-center gap-2.5 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const key = visitedBundle.profileData.handle;
+                    const nextVal = !followingVisited[key];
+                    setFollowingVisited((prev) => ({
+                      ...prev,
+                      [key]: nextVal,
+                    }));
+                    triggerToast(
+                      nextVal
+                        ? `Você agora segue ${displayProfile.name}!`
+                        : `Você deixou de seguir ${displayProfile.name}`
+                    );
+                  }}
+                  className={`px-5 py-2 rounded-full text-xs font-extrabold flex items-center gap-2 transition shadow ${
+                    isFollowingCurrentVisited
+                      ? "bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-zinc-500"
+                      : "bg-white hover:bg-zinc-200 text-black"
+                  }`}
+                >
+                  {isFollowingCurrentVisited ? (
+                    <>
+                      <UserCheck className="w-3.5 h-3.5 text-[#087E96]" />
+                      <span>Seguindo</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Seguir</span>
+                    </>
+                  )}
+                </button>
+
+                <Link
+                  href="/notas"
+                  className="px-4 py-2 rounded-full bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700 hover:border-[#087E96] text-white text-xs font-bold flex items-center gap-2 transition shadow"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-[#087E96]" />
+                  <span>Enviar mensagem</span>
+                </Link>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openEditModal}
+                title="Editar perfil"
+                className="px-4 py-2 rounded-full bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-bold flex items-center gap-2 transition mb-2 shadow"
+              >
+                <Pencil className="w-3.5 h-3.5 text-[#087E96]" />
+                <span>Editar perfil</span>
+              </button>
+            )}
           </div>
 
-          {/* Nome, Selo Corporativo (se EMPRESA), @username e Contadores */}
+          {/* Nome, Selo Corporativo (se EMPRESA), @username e Contadores Clicáveis (Seguidores / Seguindo) */}
           <div className="flex flex-wrap items-center gap-x-10 gap-y-3">
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
-                  {profile.name}
+                  {displayProfile.name}
                 </h1>
                 {isCompany && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#087E96]/30 to-amber-500/20 border border-amber-400/50 text-amber-300 text-[10px] font-extrabold tracking-wide">
@@ -375,24 +993,43 @@ export default function PerfilClient({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-zinc-400 mt-0.5">{profile.username}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {displayProfile.username}
+              </p>
             </div>
 
             <div className="flex items-center gap-7">
-              <div className="text-center">
-                <span className="block text-base font-extrabold text-white leading-none">
-                  {isCompany ? "1.420" : "280"}
+              <button
+                type="button"
+                onClick={() => {
+                  setFollowersSearch("");
+                  setFollowersModalType("seguidores");
+                }}
+                className="text-center group cursor-pointer"
+              >
+                <span className="block text-base font-extrabold text-white group-hover:text-[#38bdf8] leading-none transition">
+                  {displayProfile.followers}
                 </span>
-                <span className="text-xs text-zinc-300">seguidores</span>
-              </div>
-              <div className="text-center">
-                <span className="block text-base font-extrabold text-white leading-none">
-                  {isCompany ? "48" : "36"}
+                <span className="text-xs text-zinc-300 group-hover:underline">
+                  seguidores
                 </span>
-                <span className="text-xs text-zinc-300">
-                  {isCompany ? "parceiros" : "seguindo"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFollowersSearch("");
+                  setFollowersModalType("seguindo");
+                }}
+                className="text-center group cursor-pointer"
+              >
+                <span className="block text-base font-extrabold text-white group-hover:text-[#38bdf8] leading-none transition">
+                  {displayProfile.following}
                 </span>
-              </div>
+                <span className="text-xs text-zinc-300 group-hover:underline">
+                  seguindo
+                </span>
+              </button>
             </div>
           </div>
 
@@ -417,16 +1054,18 @@ export default function PerfilClient({
                 href="/vagas"
                 className="px-6 py-2 rounded-full bg-[#087E96]/20 border border-[#087E96] hover:bg-[#087E96]/35 text-cyan-300 text-xs font-extrabold transition shrink-0"
               >
-                Gerenciar Vagas
+                {isVisitingThirdParty ? "Ver Vagas no Catálogo" : "Gerenciar Vagas"}
               </Link>
             ) : (
-              <button
-                type="button"
-                onClick={() => setActivePillModal("pill3")}
-                className="px-6 py-2 rounded-full bg-black border border-pink-500/40 hover:border-pink-500 text-white text-xs font-extrabold transition shrink-0"
-              >
-                Aprimorar perfil
-              </button>
+              !isVisitingThirdParty && (
+                <button
+                  type="button"
+                  onClick={() => setActivePillModal("pill3")}
+                  className="px-6 py-2 rounded-full bg-black border border-pink-500/40 hover:border-pink-500 text-white text-xs font-extrabold transition shrink-0"
+                >
+                  Aprimorar perfil
+                </button>
+              )
             )}
           </div>
 
@@ -445,82 +1084,84 @@ export default function PerfilClient({
                     isCompany ? "text-[#087E96]" : "text-fuchsia-400"
                   }`}
                 />
-                <span>{profile.headline}</span>
+                <span>{displayProfile.headline}</span>
               </span>
             </div>
             <p className="text-xs text-zinc-200 leading-relaxed max-w-xl">
-              {profile.bio}
+              {displayProfile.bio}
             </p>
             <p className="text-[11px] text-zinc-400 flex items-center gap-1 pt-0.5">
               <MapPin className="w-3.5 h-3.5 text-[#087E96]" />
-              <span>{profile.location}</span>
+              <span>{displayProfile.location}</span>
             </p>
           </div>
         </div>
 
-        {/* Seção "Análise (últimos 30 dias)" Diferenciada para USUARIO vs. EMPRESA */}
-        <section className="border-t border-b border-zinc-800/90 px-6 sm:px-8 py-5">
-          <button
-            type="button"
-            onClick={() => setAnalyticsModalOpen(true)}
-            className="w-full text-left rounded-2xl bg-[#0D0D10] hover:bg-[#14141A] border border-zinc-800/90 hover:border-[#087E96]/60 p-5 transition group space-y-4"
-          >
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-baseline gap-2.5">
-                <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#087E96]" />
-                  <span>
-                    {isCompany ? "Análise de Recrutamento" : "Análise"}
+        {/* Seção "Análise (últimos 30 dias)" (Exibida no perfil próprio) */}
+        {!isVisitingThirdParty && (
+          <section className="border-t border-b border-zinc-800/90 px-6 sm:px-8 py-5">
+            <button
+              type="button"
+              onClick={() => setAnalyticsModalOpen(true)}
+              className="w-full text-left rounded-2xl bg-[#0D0D10] hover:bg-[#14141A] border border-zinc-800/90 hover:border-[#087E96]/60 p-5 transition group space-y-4"
+            >
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-baseline gap-2.5">
+                  <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-[#087E96]" />
+                    <span>
+                      {isCompany ? "Análise de Recrutamento" : "Análise"}
+                    </span>
+                  </h3>
+                  <span className="text-[11px] text-zinc-400">
+                    últimos 30 dias
                   </span>
-                </h3>
-                <span className="text-[11px] text-zinc-400">
-                  últimos 30 dias
+                </div>
+
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#087E96] group-hover:translate-x-0.5 transition">
+                  <span>Ver estatísticas detalhadas</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </span>
               </div>
 
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#087E96] group-hover:translate-x-0.5 transition">
-                <span>Ver estatísticas detalhadas</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-zinc-200">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-black/50 border border-zinc-800/80">
-                <Users className="w-4 h-4 text-cyan-400 shrink-0" />
-                <div>
-                  <span className="font-extrabold text-white">
-                    {isCompany
-                      ? "48 visualizações nas vagas"
-                      : "18 visitas ao perfil"}
-                  </span>
-                  <span className="block text-[10px] text-emerald-400">
-                    {isCompany
-                      ? "+32% de alcance entre jovens talentos"
-                      : "+24% em relação ao mês anterior"}
-                  </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-zinc-200">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-black/50 border border-zinc-800/80">
+                  <Users className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <div>
+                    <span className="font-extrabold text-white">
+                      {isCompany
+                        ? "48 visualizações nas vagas"
+                        : "18 visitas ao perfil"}
+                    </span>
+                    <span className="block text-[10px] text-emerald-400">
+                      {isCompany
+                        ? "+32% de alcance entre jovens talentos"
+                        : "+24% em relação ao mês anterior"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-black/50 border border-zinc-800/80">
+                  <ArrowLeftRight className="w-4 h-4 text-fuchsia-400 shrink-0" />
+                  <div>
+                    <span className="font-extrabold text-white">
+                      {isCompany
+                        ? "14 currículos/candidaturas recebidas"
+                        : "12 interações nas publicações"}
+                    </span>
+                    <span className="block text-[10px] text-cyan-300">
+                      {isCompany
+                        ? "Candidaturas simplificadas em 1 clique"
+                        : "64 impressões nas buscas de vagas"}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-black/50 border border-zinc-800/80">
-                <ArrowLeftRight className="w-4 h-4 text-fuchsia-400 shrink-0" />
-                <div>
-                  <span className="font-extrabold text-white">
-                    {isCompany
-                      ? "14 currículos/candidaturas recebidas"
-                      : "12 interações nas publicações"}
-                  </span>
-                  <span className="block text-[10px] text-cyan-300">
-                    {isCompany
-                      ? "Candidaturas simplificadas em 1 clique"
-                      : "64 impressões nas buscas de vagas"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </button>
-        </section>
+            </button>
+          </section>
+        )}
 
         {/* Barra de Abas Inferiores do Perfil (Diferenciada para USUARIO vs. EMPRESA) */}
-        <section className="px-6 sm:px-8 pt-6 space-y-6">
+        <section className="px-6 sm:px-8 pt-6 space-y-6 border-t border-zinc-800/60">
           <div className="flex items-center gap-2 border-b border-zinc-800/90 pb-3 overflow-x-auto no-scrollbar">
             {isCompany ? (
               <>
@@ -533,7 +1174,7 @@ export default function PerfilClient({
                       : "bg-zinc-900 text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Vagas Abertas ({initialCompanyJobs.length})
+                  Vagas Abertas ({visibleCompanyJobs.length})
                 </button>
                 <button
                   type="button"
@@ -544,7 +1185,7 @@ export default function PerfilClient({
                       : "bg-zinc-900 text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Publicações da Empresa ({visibleMyPosts.length})
+                  Publicações da Empresa ({visiblePosts.length})
                 </button>
                 <button
                   type="button"
@@ -555,7 +1196,7 @@ export default function PerfilClient({
                       : "bg-zinc-900 text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Sobre & Cultura ({entries.length})
+                  Sobre & Cultura ({visibleEntries.length})
                 </button>
               </>
             ) : (
@@ -569,7 +1210,7 @@ export default function PerfilClient({
                       : "bg-zinc-900 text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Publicações ({visibleMyPosts.length})
+                  Publicações ({visiblePosts.length})
                 </button>
                 <button
                   type="button"
@@ -580,19 +1221,21 @@ export default function PerfilClient({
                       : "bg-zinc-900 text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Portfólio ({entries.length})
+                  Portfólio ({visibleEntries.length})
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setBottomTab("candidaturas")}
-                  className={`px-5 py-2 rounded-full text-xs font-extrabold transition shrink-0 ${
-                    bottomTab === "candidaturas"
-                      ? "bg-[#087E96] text-white shadow"
-                      : "bg-zinc-900 text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  Candidaturas ({initialApplications.length})
-                </button>
+                {!isVisitingThirdParty && (
+                  <button
+                    type="button"
+                    onClick={() => setBottomTab("candidaturas")}
+                    className={`px-5 py-2 rounded-full text-xs font-extrabold transition shrink-0 ${
+                      bottomTab === "candidaturas"
+                        ? "bg-[#087E96] text-white shadow"
+                        : "bg-zinc-900 text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    Candidaturas ({initialApplications.length})
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -600,7 +1243,7 @@ export default function PerfilClient({
           {/* Conteúdo da Aba Selecionada */}
           {bottomTab === "publicacoes" && (
             <div className="space-y-4">
-              {visibleMyPosts.length === 0 ? (
+              {visiblePosts.length === 0 ? (
                 <div className="rounded-3xl bg-[#0D0D10] border border-zinc-800 p-8 text-center space-y-3">
                   <p className="text-sm font-bold text-white">
                     Nenhuma publicação registrada ainda
@@ -616,7 +1259,7 @@ export default function PerfilClient({
                   </Link>
                 </div>
               ) : (
-                visibleMyPosts.map((post) => (
+                visiblePosts.map((post) => (
                   <div
                     key={post.id}
                     className="rounded-3xl bg-[#0D0D10] border border-zinc-800 p-5 space-y-3"
@@ -624,10 +1267,10 @@ export default function PerfilClient({
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-extrabold text-white">
-                          {profile.name}
+                          {displayProfile.name}
                         </span>
                         <span className="text-xs text-zinc-500">
-                          {profile.username}
+                          {displayProfile.username}
                         </span>
                         {post.isFlashcard && (
                           <span className="px-2 py-0.5 rounded-full bg-[#087E96]/20 text-cyan-300 text-[10px] font-bold">
@@ -636,15 +1279,17 @@ export default function PerfilClient({
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteMyPost(post.id)}
-                        title="Excluir publicação"
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-950/40 hover:bg-red-900/50 border border-red-500/30 text-red-300 text-[11px] font-bold transition"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Excluir</span>
-                      </button>
+                      {!isVisitingThirdParty && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMyPost(post.id)}
+                          title="Excluir publicação"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-950/40 hover:bg-red-900/50 border border-red-500/30 text-red-300 text-[11px] font-bold transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Excluir</span>
+                        </button>
+                      )}
                     </div>
 
                     <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-line">
@@ -659,39 +1304,41 @@ export default function PerfilClient({
           {/* Aba Portfólio Unificado (para USUARIO) ou Sobre & Cultura (para EMPRESA) */}
           {(bottomTab === "portfolio" || bottomTab === "cultura") && (
             <div className="space-y-6">
-              <div className="flex flex-wrap items-center gap-6">
-                {/* Card Único em Destaque (Unificando Portfólio, Projetos e Atividades) */}
-                <button
-                  type="button"
-                  onClick={() => setPortfolioModalOpen(true)}
-                  className="w-48 h-44 rounded-[28px] bg-gradient-to-br from-[#E51C23] via-[#F55A1D] to-[#FF9800] p-5 flex flex-col items-center justify-center gap-3 shadow-xl transition hover:scale-[1.03]"
-                >
-                  <div className="w-11 h-11 rounded-full bg-black text-white flex items-center justify-center shadow-md">
-                    <Plus className="w-6 h-6 stroke-[2.5]" />
-                  </div>
-                  <span className="text-xs font-extrabold text-white text-center">
-                    {isCompany
-                      ? "Adicionar Cultura & Benefícios"
-                      : "Adicionar portfólio"}
-                  </span>
-                </button>
+              {!isVisitingThirdParty && (
+                /* Harmonia de Tamanho: Card de Ação com exatamente a mesma altura (h-full) do card descritivo ao lado */
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 items-stretch">
+                  <button
+                    type="button"
+                    onClick={() => setPortfolioModalOpen(true)}
+                    className="w-full h-full min-h-[112px] rounded-3xl bg-gradient-to-br from-[#E51C23] via-[#F55A1D] to-[#FF9800] p-4 flex flex-col items-center justify-center gap-2.5 shadow-xl transition hover:scale-[1.02]"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-black text-white flex items-center justify-center shadow-md shrink-0">
+                      <Plus className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                    <span className="text-xs font-extrabold text-white text-center leading-snug">
+                      {isCompany
+                        ? "Adicionar Cultura & Benefícios"
+                        : "Adicionar portfólio"}
+                    </span>
+                  </button>
 
-                <div className="flex-1 min-w-[240px] rounded-3xl bg-[#0D0D10] border border-zinc-800 p-5 space-y-2">
-                  <h4 className="text-sm font-extrabold text-white">
-                    {isCompany
-                      ? "Marca Empregadora & Cultura"
-                      : "Portfólio, Projetos e Atividades Unificados"}
-                  </h4>
-                  <p className="text-xs text-zinc-400 leading-relaxed">
-                    {isCompany
-                      ? "Destaque os benefícios, programas de mentoria e diferenciais da sua empresa para atrair jovens talentos."
-                      : "Centralize todos os seus projetos práticos, repositórios, atividades acadêmicas e experiências em um único portfólio organizado."}
-                  </p>
+                  <div className="h-full rounded-3xl bg-[#0D0D10] border border-zinc-800 p-5 flex flex-col justify-center space-y-1.5">
+                    <h4 className="text-sm font-extrabold text-white">
+                      {isCompany
+                        ? "Marca Empregadora & Cultura"
+                        : "Portfólio, Projetos e Atividades Unificados"}
+                    </h4>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      {isCompany
+                        ? "Destaque os benefícios, programas de mentoria e diferenciais da sua empresa para atrair jovens talentos."
+                        : "Centralize todos os seus projetos práticos, repositórios, atividades acadêmicas e experiências em um único portfólio organizado."}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {entries.map((item) => (
+                {visibleEntries.map((item) => (
                   <div
                     key={item.id}
                     className="rounded-3xl bg-[#111115] border border-zinc-800 p-5 space-y-2.5 flex flex-col justify-between"
@@ -727,8 +1374,8 @@ export default function PerfilClient({
             </div>
           )}
 
-          {/* Aba Candidaturas (para USUARIO) */}
-          {bottomTab === "candidaturas" && !isCompany && (
+          {/* Aba Candidaturas (para USUARIO no próprio perfil) */}
+          {bottomTab === "candidaturas" && !isCompany && !isVisitingThirdParty && (
             <div className="space-y-4">
               {initialApplications.length === 0 ? (
                 <div className="rounded-3xl bg-[#0D0D10] border border-zinc-800 p-8 text-center space-y-3">
@@ -749,23 +1396,23 @@ export default function PerfilClient({
                 initialApplications.map((app) => (
                   <div
                     key={app.id}
-                    className="rounded-3xl bg-[#0D0D10] border border-zinc-800 p-5 flex items-center justify-between gap-4 flex-wrap"
+                    className="rounded-3xl bg-[#0D0D10] border border-zinc-800 p-5 flex items-center justify-between gap-4"
                   >
-                    <div className="space-y-1">
+                    <div className="flex-1 min-w-0 space-y-1">
                       <span className="px-2.5 py-0.5 rounded-full bg-[#087E96]/20 text-cyan-300 text-[10px] font-extrabold uppercase">
                         {app.opportunity.category}
                       </span>
-                      <h4 className="text-sm font-extrabold text-white pt-1">
+                      <h4 className="text-sm font-extrabold text-white pt-1 truncate">
                         {app.opportunity.title} — {app.opportunity.companyName}
                       </h4>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-zinc-400 truncate">
                         {app.opportunity.location}{" "}
                         {app.opportunity.salaryInfo
                           ? `• ${app.opportunity.salaryInfo}`
                           : ""}
                       </p>
                     </div>
-                    <span className="px-3.5 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-xs font-extrabold">
+                    <span className="shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-xs font-extrabold">
                       Candidatura enviada ✓
                     </span>
                   </div>
@@ -777,50 +1424,64 @@ export default function PerfilClient({
           {/* Aba Vagas Abertas (Exclusiva para EMPRESA) */}
           {bottomTab === "vagas" && isCompany && (
             <div className="space-y-6">
-              <div className="flex flex-wrap items-center gap-6">
-                <Link
-                  href="/vagas"
-                  className="w-48 h-44 rounded-[28px] bg-gradient-to-br from-[#087E96] via-blue-600 to-indigo-700 p-5 flex flex-col items-center justify-center gap-3 shadow-xl transition hover:scale-[1.03]"
-                >
-                  <div className="w-11 h-11 rounded-full bg-black text-white flex items-center justify-center shadow-md">
-                    <Plus className="w-6 h-6 stroke-[2.5]" />
-                  </div>
-                  <span className="text-xs font-extrabold text-white text-center">
-                    Publicar Nova Vaga
-                  </span>
-                </Link>
+              {!isVisitingThirdParty && (
+                /* Harmonia de Tamanho: Botão "Publicar Nova Vaga" com exatamente a mesma altura (h-full) do card descritivo */
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 items-stretch">
+                  <Link
+                    href="/vagas"
+                    className="w-full h-full min-h-[112px] rounded-3xl bg-gradient-to-br from-[#087E96] via-blue-600 to-indigo-700 p-4 flex flex-col items-center justify-center gap-2.5 shadow-xl transition hover:scale-[1.02]"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-black text-white flex items-center justify-center shadow-md shrink-0">
+                      <Plus className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                    <span className="text-xs font-extrabold text-white text-center leading-snug">
+                      Publicar Nova Vaga
+                    </span>
+                  </Link>
 
-                <div className="flex-1 min-w-[240px] rounded-3xl bg-[#0D0D10] border border-zinc-800 p-5 space-y-2">
-                  <h4 className="text-sm font-extrabold text-white">
-                    Gestão Corporativa de Oportunidades
-                  </h4>
-                  <p className="text-xs text-zinc-400 leading-relaxed">
-                    Acompanhe abaixo as oportunidades abertas e visualize os jovens talentos inscritos via Candidatura Simplificada em 1 Clique.
-                  </p>
+                  <div className="h-full rounded-3xl bg-[#0D0D10] border border-zinc-800 p-5 flex flex-col justify-center space-y-1.5">
+                    <h4 className="text-sm font-extrabold text-white">
+                      Gestão Corporativa de Oportunidades
+                    </h4>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Acompanhe abaixo as oportunidades abertas e visualize os jovens talentos inscritos via Candidatura Simplificada em 1 Clique.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="space-y-4">
-                {initialCompanyJobs.map((job) => (
+                {visibleCompanyJobs.map((job) => (
                   <div
                     key={job.id}
                     className="rounded-3xl bg-[#0D0D10] border border-zinc-800 p-5 space-y-3"
                   >
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div>
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#087E96]/20 text-cyan-300 text-[10px] font-extrabold uppercase">
+                    {/* Alinhamento Fixo à Direita do Contador de Candidatos (Sem flex-wrap, badge shrink-0 whitespace-nowrap) */}
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#087E96]/20 text-cyan-300 text-[10px] font-extrabold uppercase">
                           {job.category} • {job.location}
                         </span>
-                        <h4 className="text-base font-extrabold text-white mt-1">
+                        <h4 className="text-base font-extrabold text-white mt-1.5 truncate">
                           {job.title} — {job.companyName}
                         </h4>
                       </div>
-                      <span className="px-3.5 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-extrabold text-cyan-300">
-                        {job.applicationsCount} candidato(s) inscrito(s)
-                      </span>
+
+                      {isVisitingThirdParty ? (
+                        <Link
+                          href="/vagas"
+                          className="shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-xs font-extrabold text-white transition"
+                        >
+                          Ver no Catálogo →
+                        </Link>
+                      ) : (
+                        <span className="shrink-0 whitespace-nowrap px-3.5 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-xs font-extrabold text-cyan-300">
+                          {job.applicationsCount} candidato(s) inscrito(s)
+                        </span>
+                      )}
                     </div>
 
-                    {job.candidates.length > 0 && (
+                    {!isVisitingThirdParty && job.candidates.length > 0 && (
                       <div className="pt-2 border-t border-zinc-800/80 space-y-2">
                         <p className="text-[11px] font-bold text-zinc-400">
                           Candidatos inscritos recentemente:
@@ -831,12 +1492,17 @@ export default function PerfilClient({
                               key={cand.id}
                               className="p-2.5 rounded-2xl bg-black/60 border border-zinc-800 text-xs"
                             >
-                              <p className="font-bold text-white">
+                              <Link
+                                href={`/perfil?user=${encodeURIComponent(
+                                  cand.username
+                                )}`}
+                                className="font-bold text-white hover:text-[#38bdf8] transition"
+                              >
                                 {cand.name}{" "}
                                 <span className="text-zinc-400 font-normal">
                                   ({cand.username})
                                 </span>
-                              </p>
+                              </Link>
                               <p className="text-[11px] text-zinc-400">
                                 {cand.email} • {cand.phone}
                               </p>
@@ -852,6 +1518,138 @@ export default function PerfilClient({
           )}
         </section>
       </div>
+
+      {/* Modal de "Seguidores" e "Seguindo" com Pesquisa e Aviso de Limite (Estilo Instagram) */}
+      {followersModalType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6">
+          <div className="w-full max-w-md rounded-3xl bg-[#111114] border border-zinc-800 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Topo do Modal */}
+            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#087E96]" />
+                <h3 className="text-sm font-extrabold text-white capitalize">
+                  {followersModalType === "seguidores"
+                    ? `Seguidores de ${displayProfile.name}`
+                    : `Seguindo por ${displayProfile.name}`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFollowersModalType(null)}
+                className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Barra de Pesquisa no Topo */}
+            <div className="p-4 border-b border-zinc-800/80">
+              <div className="relative">
+                <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={followersSearch}
+                  onChange={(e) => setFollowersSearch(e.target.value)}
+                  placeholder="Pesquisar pessoas ou empresas..."
+                  className="w-full h-10 rounded-full bg-zinc-900 border border-zinc-700 focus:border-[#087E96] pl-10 pr-4 text-xs text-white placeholder-zinc-500 outline-none transition"
+                />
+              </div>
+            </div>
+
+            {/* Lista Compacta de Perfis (Usuários e Empresas) */}
+            <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/50 px-2 py-1">
+              {filteredNetworkConnections.length === 0 ? (
+                <div className="py-10 text-center text-xs text-zinc-400">
+                  Nenhum perfil encontrado para &ldquo;{followersSearch}&rdquo;.
+                </div>
+              ) : (
+                filteredNetworkConnections.map((conn) => {
+                  const isFollowingConn = Boolean(networkFollowingMap[conn.id]);
+                  const isConnCompany = conn.role === "EMPRESA";
+
+                  return (
+                    <div
+                      key={conn.id}
+                      className="flex items-center justify-between gap-3 px-3 py-3 rounded-2xl hover:bg-zinc-900/60 transition"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFollowersModalType(null);
+                          router.push(
+                            `/perfil?user=${encodeURIComponent(conn.username)}`
+                          );
+                        }}
+                        className="flex items-center gap-3 min-w-0 text-left group flex-1"
+                      >
+                        <div
+                          className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 transition ${
+                            isConnCompany
+                              ? "bg-[#087E96]/20 border-[#087E96] text-cyan-300"
+                              : "bg-zinc-800 border-zinc-700 text-zinc-300 group-hover:border-[#087E96]"
+                          }`}
+                        >
+                          {isConnCompany ? (
+                            <Building2 className="w-4 h-4" />
+                          ) : (
+                            <UserIcon className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-extrabold text-white group-hover:text-[#38bdf8] truncate transition">
+                              {conn.name}
+                            </p>
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full text-[8px] font-extrabold shrink-0 ${
+                                isConnCompany
+                                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                  : "bg-[#087E96]/20 text-cyan-300"
+                              }`}
+                            >
+                              {conn.role}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 truncate">
+                            {conn.username} • {conn.headline}
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNetworkFollowingMap((prev) => ({
+                            ...prev,
+                            [conn.id]: !prev[conn.id],
+                          }))
+                        }
+                        className={`px-3.5 py-1.5 rounded-full text-[11px] font-extrabold transition shrink-0 ${
+                          isFollowingConn
+                            ? "bg-zinc-800 text-zinc-200 border border-zinc-700 hover:border-zinc-500"
+                            : "bg-white hover:bg-zinc-200 text-black"
+                        }`}
+                      >
+                        {isFollowingConn ? "Seguindo" : "Seguir"}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Aviso Elegante no Rodapé do Modal */}
+            <div className="p-4 border-t border-zinc-800 bg-zinc-950/90">
+              <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 px-3.5 py-2.5 flex items-start gap-2.5 text-[11px] text-zinc-400 leading-relaxed">
+                <Info className="w-4 h-4 text-[#087E96] shrink-0 mt-0.5" />
+                <span>
+                  Exibindo amostra principal — ainda não é possível visualizar a lista completa de todos os perfis nesta versão do MVP.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Analytics Profissional ("Análise - últimos 30 dias") */}
       {analyticsModalOpen && (
@@ -986,7 +1784,7 @@ export default function PerfilClient({
         </div>
       )}
 
-      {/* Modal de Editar Perfil (Com Botões de Upload de Foto e Banner com Aviso MVP) */}
+      {/* Modal de Editar Perfil (Com Edição de @username + Cooldown de 14 dias e Botões de Upload) */}
       {editModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6 overflow-y-auto">
           <div className="w-full max-w-lg rounded-3xl bg-[#111111] border border-zinc-800 p-6 shadow-2xl space-y-4 my-auto">
@@ -994,7 +1792,7 @@ export default function PerfilClient({
               <h3 className="text-base font-extrabold flex items-center gap-2">
                 <Pencil className="w-4 h-4 text-[#087E96]" />
                 <span>
-                  {isCompany ? "Editar Perfil da Empresa" : "Editar Perfil"}
+                  {isOwnCompany ? "Editar Perfil da Empresa" : "Editar Perfil"}
                 </span>
               </h3>
               <button
@@ -1042,23 +1840,58 @@ export default function PerfilClient({
               </div>
             )}
 
-            <form onSubmit={handleSaveProfile} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  {isCompany ? "Nome da Empresa" : "Nome de Exibição"}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full h-10 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white outline-none"
-                />
+            <form noValidate onSubmit={handleSaveProfile} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    {isOwnCompany ? "Nome da Empresa" : "Nome de Exibição"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full h-10 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">
+                    Identificador (@username)
+                  </label>
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => {
+                      setEditUsername(sanitizeUsernameInput(e.target.value));
+                      if (usernameError) setUsernameError(null);
+                    }}
+                    placeholder="@seu_username"
+                    className={`w-full h-10 rounded-full bg-black border px-4 text-xs text-white outline-none transition ${
+                      usernameError
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-zinc-700 focus:border-[#087E96]"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Aviso de Regra de Cooldown de 14 Dias para o @username */}
+              <div className="px-1">
+                <p className="text-[11px] text-zinc-400">
+                  Você pode alterar seu @username apenas 1 vez a cada 14 dias.
+                </p>
+                {usernameError && (
+                  <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1.5 font-semibold">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{usernameError}</span>
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  {isCompany
+                  {isOwnCompany
                     ? "Setor / Slogan Corporativo"
                     : "Cargo / Título Profissional"}
                 </label>
@@ -1072,7 +1905,7 @@ export default function PerfilClient({
 
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  {isCompany
+                  {isOwnCompany
                     ? "Sobre a Empresa e Cultura"
                     : "Resumo / Biografia"}
                 </label>
@@ -1117,13 +1950,13 @@ export default function PerfilClient({
         </div>
       )}
 
-      {/* Modal Unificado de Adicionar ao Portfólio (Projetos, Atividades e Experiências) */}
+      {/* Modal Unificado de Adicionar ao Portfólio (Com CustomSelect moderno em Dark Mode) */}
       {portfolioModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
           <div className="w-full max-w-md rounded-3xl bg-[#111111] border border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-extrabold">
-                {isCompany
+                {isOwnCompany
                   ? "Adicionar Cultura, Programa ou Benefício"
                   : "Adicionar ao Portfólio (Projetos & Atividades)"}
               </h3>
@@ -1138,40 +1971,14 @@ export default function PerfilClient({
 
             <form onSubmit={handleAddPortfolioEntry} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Tipo de Registro
                 </label>
-                <select
+                <CustomSelect
                   value={entryCategory}
-                  onChange={(e) => setEntryCategory(e.target.value)}
-                  className="w-full h-10 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white outline-none"
-                >
-                  {isCompany ? (
-                    <>
-                      <option value="Benefício & Cultura">
-                        Benefício & Cultura
-                      </option>
-                      <option value="Programa de Formação">
-                        Programa de Formação
-                      </option>
-                      <option value="Inovação & Projetos">
-                        Inovação & Projetos
-                      </option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Projeto de Portfólio">
-                        Projeto de Portfólio
-                      </option>
-                      <option value="Atividade Acadêmica / Curso">
-                        Atividade Acadêmica / Curso
-                      </option>
-                      <option value="Experiência Prática">
-                        Experiência Prática
-                      </option>
-                    </>
-                  )}
-                </select>
+                  onChange={(val) => setEntryCategory(val)}
+                  options={portfolioSelectOptions}
+                />
               </div>
 
               <div>
@@ -1184,11 +1991,11 @@ export default function PerfilClient({
                   value={entryTitle}
                   onChange={(e) => setEntryTitle(e.target.value)}
                   placeholder={
-                    isCompany
+                    isOwnCompany
                       ? "Ex: Trilha de Efetivação para Estagiários"
                       : "Ex: Plataforma Web Heston (Next.js + Prisma)"
                   }
-                  className="w-full h-10 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white outline-none"
+                  className="w-full h-11 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white outline-none"
                 />
               </div>
 
@@ -1214,7 +2021,7 @@ export default function PerfilClient({
                   value={entryLink}
                   onChange={(e) => setEntryLink(e.target.value)}
                   placeholder="https://github.com/..."
-                  className="w-full h-10 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white outline-none"
+                  className="w-full h-11 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white outline-none"
                 />
               </div>
 
@@ -1283,15 +2090,15 @@ export default function PerfilClient({
             {activePillModal === "pill1" && (
               <div className="space-y-3 text-xs text-zinc-300">
                 <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-1">
-                  <p className="font-bold text-white">{profile.name}</p>
+                  <p className="font-bold text-white">{displayProfile.name}</p>
                   <p className="text-cyan-300 font-semibold">
-                    {profile.headline}
+                    {displayProfile.headline}
                   </p>
-                  <p className="text-zinc-400 pt-1">{profile.bio}</p>
+                  <p className="text-zinc-400 pt-1">{displayProfile.bio}</p>
                 </div>
                 <p className="text-zinc-400">
                   {isCompany
-                    ? "Essas informações institucionais são exibidas em todas as vagas publicadas pela sua empresa no catálogo do Heston."
+                    ? "Essas informações institucionais são exibidas em todas as vagas publicadas pela empresa no catálogo do Heston."
                     : "Este resumo profissional é enviado automaticamente quando você utiliza a Candidatura em 1 Clique na aba Vagas."}
                 </p>
               </div>
@@ -1309,31 +2116,33 @@ export default function PerfilClient({
                     </span>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newInterest}
-                    onChange={(e) => setNewInterest(e.target.value)}
-                    placeholder={
-                      isCompany
-                        ? "Adicionar área de atuação..."
-                        : "Adicionar novo interesse..."
-                    }
-                    className="flex-1 h-9 rounded-full bg-black border border-zinc-700 px-4 text-xs text-white outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (newInterest.trim()) {
-                        setInterests((prev) => [...prev, newInterest.trim()]);
-                        setNewInterest("");
+                {!isVisitingThirdParty && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newInterest}
+                      onChange={(e) => setNewInterest(e.target.value)}
+                      placeholder={
+                        isCompany
+                          ? "Adicionar área de atuação..."
+                          : "Adicionar novo interesse..."
                       }
-                    }}
-                    className="px-4 h-9 rounded-full bg-[#087E96] text-white text-xs font-bold"
-                  >
-                    Adicionar
-                  </button>
-                </div>
+                      className="flex-1 h-9 rounded-full bg-black border border-zinc-700 px-4 text-xs text-white outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newInterest.trim()) {
+                          setInterests((prev) => [...prev, newInterest.trim()]);
+                          setNewInterest("");
+                        }
+                      }}
+                      className="px-4 h-9 rounded-full bg-[#087E96] text-white text-xs font-bold"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

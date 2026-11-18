@@ -287,8 +287,17 @@ export default function HomeFeedClient({
   function scrollFlashcards(direction: "left" | "right") {
     const el = flashcardScrollRef.current;
     if (!el) return;
-    const offset = direction === "left" ? -504 : 504;
-    el.scrollBy({ left: offset, behavior: "smooth" });
+    const step = 504; // 480px card + 24px gap
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    const rawTarget =
+      direction === "left" ? el.scrollLeft - step : el.scrollLeft + step;
+    let finalLeft = rawTarget;
+    if (rawTarget < 150) {
+      finalLeft = 0;
+    } else if (maxScroll - rawTarget < 150) {
+      finalLeft = maxScroll;
+    }
+    el.scrollTo({ left: finalLeft, behavior: "smooth" });
   }
 
   function handlePollOptionChange(idx: number, val: string) {
@@ -630,11 +639,6 @@ export default function HomeFeedClient({
           </div>
 
           <div className="relative flex items-center">
-            {/* Fade em Degradê Preto à Esquerda */}
-            {canScrollFcLeft && (
-              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-black via-black/60 to-transparent z-10" />
-            )}
-
             {canScrollFcLeft && (
               <button
                 type="button"
@@ -649,7 +653,15 @@ export default function HomeFeedClient({
             <div
               ref={flashcardScrollRef}
               onScroll={updateFlashcardScrollState}
-              className="flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-12"
+              className={`flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-12 ${
+                canScrollFcLeft && canScrollFcRight
+                  ? "[mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_85%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_85%,transparent_100%)]"
+                  : canScrollFcRight
+                  ? "[mask-image:linear-gradient(to_right,black_0%,black_85%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,black_0%,black_85%,transparent_100%)]"
+                  : canScrollFcLeft
+                  ? "[mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_100%)]"
+                  : ""
+              }`}
             >
               {flashcards.map((fc, idx) => {
                 const isSecond = idx % 2 === 1;
@@ -677,16 +689,21 @@ export default function HomeFeedClient({
                       <HestonLogo size={115} />
                     </div>
 
-                    {/* Topo: Avatar Universal + Username + Badge */}
+                    {/* Topo: Avatar Universal + Username Clicável + Badge */}
                     <div className="relative z-10 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-black/30 ring-2 ring-cyan-300/80 backdrop-blur-sm flex items-center justify-center text-white shrink-0">
+                      <Link
+                        href={`/perfil?user=${encodeURIComponent(
+                          displayUsername
+                        )}`}
+                        className="flex items-center gap-2.5 group/author"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-black/30 ring-2 ring-cyan-300/80 group-hover/author:ring-white backdrop-blur-sm flex items-center justify-center text-white shrink-0 transition">
                           <UserIcon className="w-4 h-4" />
                         </div>
-                        <span className="text-xs font-bold text-white tracking-wide">
-                          {displayUsername}
+                        <span className="text-xs font-bold text-white group-hover/author:underline tracking-wide">
+                          @{displayUsername}
                         </span>
-                      </div>
+                      </Link>
 
                       <span className="px-3 py-1 rounded-full bg-black/25 backdrop-blur-sm border border-white/15 text-[10px] font-extrabold uppercase tracking-wider">
                         {fc.author.role}
@@ -720,11 +737,6 @@ export default function HomeFeedClient({
                 );
               })}
             </div>
-
-            {/* Fade em Degradê Preto à Direita */}
-            {canScrollFcRight && (
-              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black via-black/60 to-transparent z-10" />
-            )}
 
             {canScrollFcRight && (
               <button
@@ -776,8 +788,11 @@ export default function HomeFeedClient({
                 {/* Cabeçalho do Post + Menu Dropdown Funcional `...` */}
                 <div className="flex items-center justify-between gap-3 relative">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 ${
+                    <Link
+                      href={`/perfil?user=${encodeURIComponent(
+                        post.author.username
+                      )}`}
+                      className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 transition hover:border-[#087E96] ${
                         post.author.role === "EMPRESA"
                           ? "bg-[#087E96]/20 border-[#087E96] text-cyan-300"
                           : "bg-zinc-800 border-zinc-700 text-zinc-300"
@@ -788,15 +803,25 @@ export default function HomeFeedClient({
                       ) : (
                         <UserIcon className="w-5 h-5" />
                       )}
-                    </div>
+                    </Link>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-extrabold text-white">
+                        <Link
+                          href={`/perfil?user=${encodeURIComponent(
+                            post.author.username
+                          )}`}
+                          className="text-sm font-extrabold text-white hover:text-[#38bdf8] transition"
+                        >
                           {post.author.name}
-                        </span>
-                        <span className="text-xs text-zinc-400">
+                        </Link>
+                        <Link
+                          href={`/perfil?user=${encodeURIComponent(
+                            post.author.username
+                          )}`}
+                          className="text-xs text-zinc-400 hover:text-zinc-200 transition"
+                        >
                           {post.author.username}
-                        </span>
+                        </Link>
                         <span
                           className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
                             post.author.role === "EMPRESA"

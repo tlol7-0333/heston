@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import {
   Search,
   SendHorizontal,
@@ -9,8 +9,6 @@ import {
   MessageSquare,
   Globe,
   Users,
-  ChevronLeft,
-  ChevronRight,
   User as UserIcon,
   Paperclip,
   Mic,
@@ -109,7 +107,7 @@ const INITIAL_DIRECT_THREADS: DirectThread[] = [
     name: "Cristiane Melo",
     avatarBg: "bg-purple-600 text-white",
     lastMessage: "Bom trabalho :)",
-    time: "Ontem • 18:40",
+    time: "Ontem",
     unreadCount: 0,
     isFavorite: true,
     messages: [
@@ -117,13 +115,13 @@ const INITIAL_DIRECT_THREADS: DirectThread[] = [
         id: "m4",
         sender: "me",
         text: "Acabei de enviar a atualização do projeto!",
-        time: "Ontem • 18:35",
+        time: "Ontem",
       },
       {
         id: "m5",
         sender: "them",
         text: "Bom trabalho :)",
-        time: "Ontem • 18:40",
+        time: "Ontem",
       },
     ],
   },
@@ -132,7 +130,7 @@ const INITIAL_DIRECT_THREADS: DirectThread[] = [
     name: "Fábio Melo",
     avatarBg: "bg-[#087E96] text-white",
     lastMessage: "Como está o andamento dos serviços?",
-    time: "Ontem • 14:47",
+    time: "Ontem",
     unreadCount: 2,
     isFavorite: false,
     messages: [
@@ -140,13 +138,13 @@ const INITIAL_DIRECT_THREADS: DirectThread[] = [
         id: "m6",
         sender: "them",
         text: "Boa tarde! Tudo certo por aí?",
-        time: "Ontem • 14:45",
+        time: "Ontem",
       },
       {
         id: "m7",
         sender: "them",
         text: "Como está o andamento dos serviços?",
-        time: "Ontem • 14:47",
+        time: "Ontem",
       },
     ],
   },
@@ -277,7 +275,7 @@ const INITIAL_COMMUNITIES: CommunityItem[] = [
     isFavorite: false,
     unreadCount: 0,
     lastActivity: "EMBRAPE: 4 novas bolsas abertas para este semestre",
-    lastTime: "Ontem • 21:15",
+    lastTime: "Ontem",
     sampleMembers: ["EMBRAPE", "Carla R.", "João V."],
     messages: [
       {
@@ -285,7 +283,7 @@ const INITIAL_COMMUNITIES: CommunityItem[] = [
         authorName: "EMBRAPE (@embrape_oficial)",
         authorRole: "EMPRESA",
         text: "Abrimos 4 novas bolsas de estágio e trilha júnior neste semestre! Confira os requisitos na aba Vagas.",
-        time: "Ontem • 21:15",
+        time: "Ontem",
       },
     ],
   },
@@ -347,25 +345,6 @@ export default function NotasClient({ user }: { user: SessionUserClient }) {
   const [recordingAudio, setRecordingAudio] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const subfilterScrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollSubLeft, setCanScrollSubLeft] = useState(false);
-  const [canScrollSubRight, setCanScrollSubRight] = useState(false);
-
-  const updateSubfilterOverflow = useCallback(() => {
-    const el = subfilterScrollRef.current;
-    if (!el) return;
-    const hasOverflow = el.scrollWidth > el.clientWidth + 6;
-    setCanScrollSubLeft(hasOverflow && el.scrollLeft > 6);
-    setCanScrollSubRight(
-      hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 6
-    );
-  }, []);
-
-  useEffect(() => {
-    updateSubfilterOverflow();
-    window.addEventListener("resize", updateSubfilterOverflow);
-    return () => window.removeEventListener("resize", updateSubfilterOverflow);
-  }, [centerMode, updateSubfilterOverflow]);
 
   const visibleDirectThreads = directThreads.filter((t) => {
     const q = searchTerm.trim().toLowerCase();
@@ -673,77 +652,39 @@ export default function NotasClient({ user }: { user: SessionUserClient }) {
               />
             </div>
 
-            {/* Subfiltros com Estrela Neutra e Setas Condicionais (Só aparecem se houver overflow) */}
-            <div className="flex items-center gap-1.5">
-              {canScrollSubLeft && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    subfilterScrollRef.current?.scrollBy({
-                      left: -140,
-                      behavior: "smooth",
-                    })
-                  }
-                  aria-label="Anterior"
-                  className="w-6 h-6 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center text-zinc-400 hover:text-white shrink-0"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              <div
-                ref={subfilterScrollRef}
-                onScroll={updateSubfilterOverflow}
-                className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth"
-              >
-                {activeSubfilters.map((sub) => {
-                  const isActive = currentSubfilter === sub;
-                  const hasStar = sub.toLowerCase().includes("favorit");
-                  return (
-                    <button
-                      key={sub}
-                      type="button"
-                      onClick={() =>
-                        centerMode === "chat"
-                          ? setChatSubfilter(sub)
-                          : setCommSubfilter(sub)
-                      }
-                      className={`px-3.5 py-1 rounded-full text-[11px] font-extrabold inline-flex items-center gap-1.5 transition shrink-0 ${
-                        isActive
-                          ? "bg-white text-black shadow"
-                          : "bg-black border border-pink-500/40 hover:border-pink-500 text-zinc-200"
-                      }`}
-                    >
-                      {hasStar && (
-                        <Star
-                          className={`w-3 h-3 ${
-                            isActive
-                              ? "fill-black text-black"
-                              : "fill-white text-white"
-                          }`}
-                        />
-                      )}
-                      <span>{sub}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {canScrollSubRight && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    subfilterScrollRef.current?.scrollBy({
-                      left: 140,
-                      behavior: "smooth",
-                    })
-                  }
-                  aria-label="Próximo"
-                  className="w-6 h-6 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center text-zinc-400 hover:text-white shrink-0"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              )}
+            {/* Subfiltros com Estrela Neutra (Sem setas de rolagem horizontal — cabem todos lado a lado) */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {activeSubfilters.map((sub) => {
+                const isActive = currentSubfilter === sub;
+                const hasStar = sub.toLowerCase().includes("favorit");
+                return (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() =>
+                      centerMode === "chat"
+                        ? setChatSubfilter(sub)
+                        : setCommSubfilter(sub)
+                    }
+                    className={`px-3 py-1.5 rounded-full text-xs font-extrabold inline-flex items-center gap-1.5 whitespace-nowrap transition ${
+                      isActive
+                        ? "bg-white text-black shadow"
+                        : "bg-black border border-pink-500/40 hover:border-pink-500 text-zinc-200"
+                    }`}
+                  >
+                    {hasStar && (
+                      <Star
+                        className={`w-3 h-3 ${
+                          isActive
+                            ? "fill-black text-black"
+                            : "fill-white text-white"
+                        }`}
+                      />
+                    )}
+                    <span>{sub}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

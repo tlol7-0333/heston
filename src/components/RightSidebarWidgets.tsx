@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { User as UserIcon, Users } from "lucide-react";
 
 const RECOMMENDED_FOR_USERS = [
@@ -146,19 +147,22 @@ export default function RightSidebarWidgets({
                 key={prof.id}
                 className="flex items-center justify-between gap-2"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0">
+                <Link
+                  href={`/perfil?user=${encodeURIComponent(prof.username)}`}
+                  className="flex items-center gap-2.5 min-w-0 group"
+                >
+                  <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 group-hover:border-[#087E96] flex items-center justify-center text-zinc-300 shrink-0 transition">
                     <UserIcon className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">
+                    <p className="text-xs font-bold text-white group-hover:text-[#38bdf8] truncate transition">
                       {prof.username}
                     </p>
                     <p className="text-[11px] text-zinc-400 truncate">
                       {prof.name}
                     </p>
                   </div>
-                </div>
+                </Link>
                 <button
                   type="button"
                   onClick={() =>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Search,
   Plus,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 import RightSidebarWidgets from "@/components/RightSidebarWidgets";
+import CustomSelect from "@/components/CustomSelect";
 
 export interface CandidateInfo {
   id: string;
@@ -164,8 +166,16 @@ function OpportunityCarouselRow({
   function scrollRow(dir: "left" | "right") {
     const el = rowRef.current;
     if (!el) return;
-    const offset = dir === "left" ? -444 : 444;
-    el.scrollBy({ left: offset, behavior: "smooth" });
+    const step = 444; // 420px card + 24px gap
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    const rawTarget = dir === "left" ? el.scrollLeft - step : el.scrollLeft + step;
+    let finalLeft = rawTarget;
+    if (rawTarget < 150) {
+      finalLeft = 0;
+    } else if (maxScroll - rawTarget < 150) {
+      finalLeft = maxScroll;
+    }
+    el.scrollTo({ left: finalLeft, behavior: "smooth" });
   }
 
   if (items.length === 0) return null;
@@ -185,11 +195,6 @@ function OpportunityCarouselRow({
       </div>
 
       <div className="relative flex items-center">
-        {/* Fade Suave em Degradê Preto à Esquerda */}
-        {canLeft && (
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-black via-black/60 to-transparent z-10" />
-        )}
-
         {canLeft && (
           <button
             type="button"
@@ -204,15 +209,18 @@ function OpportunityCarouselRow({
         <div
           ref={rowRef}
           onScroll={updateScrollButtons}
-          className="flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-12"
+          className={`flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-12 ${
+            canLeft && canRight
+              ? "[mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_85%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_85%,transparent_100%)]"
+              : canRight
+              ? "[mask-image:linear-gradient(to_right,black_0%,black_85%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,black_0%,black_85%,transparent_100%)]"
+              : canLeft
+              ? "[mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_100%)]"
+              : ""
+          }`}
         >
           {items.map((opp, idx) => renderCard(opp, offsetIndex + idx))}
         </div>
-
-        {/* Fade Suave em Degradê Preto à Direita */}
-        {canRight && (
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black via-black/60 to-transparent z-10" />
-        )}
 
         {canRight && (
           <button
@@ -455,9 +463,13 @@ export default function VagasClient({
       >
         <div className="pointer-events-none absolute -right-10 -bottom-10 w-36 h-36 rounded-full bg-white/10 blur-md" />
 
-        <div className="w-16 h-16 rounded-2xl bg-black/20 backdrop-blur-sm border border-white/25 flex items-center justify-center shrink-0">
+        <Link
+          href={`/perfil?user=${encodeURIComponent(opp.companyName)}`}
+          title={`Visitar perfil de ${opp.companyName}`}
+          className="w-16 h-16 rounded-2xl bg-black/20 hover:bg-black/35 backdrop-blur-sm border border-white/25 hover:border-white/60 flex items-center justify-center shrink-0 transition"
+        >
           <Building2 className="w-9 h-9 text-white/90" />
-        </div>
+        </Link>
 
         <div className="flex-1 min-w-0 h-full flex flex-col justify-between relative z-10">
           <div className="flex items-center justify-between gap-2">
@@ -472,7 +484,13 @@ export default function VagasClient({
 
           <div className="my-auto">
             <h3 className="text-lg font-extrabold leading-snug tracking-tight drop-shadow-sm line-clamp-2">
-              {opp.title} - {opp.companyName}
+              {opp.title} -{" "}
+              <Link
+                href={`/perfil?user=${encodeURIComponent(opp.companyName)}`}
+                className="underline decoration-white/40 hover:decoration-white"
+              >
+                {opp.companyName}
+              </Link>
             </h3>
             {opp.salaryInfo && (
               <p className="text-[11px] font-semibold text-white/90 truncate mt-0.5">
@@ -1089,17 +1107,14 @@ export default function VagasClient({
                   <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                     Modalidade / Categoria
                   </label>
-                  <select
+                  <CustomSelect
                     value={jobCategory}
-                    onChange={(e) => setJobCategory(e.target.value)}
-                    className="w-full h-11 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white outline-none transition"
-                  >
-                    {CATEGORY_OPTIONS.map((cat) => (
-                      <option key={cat} value={cat} className="bg-black">
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setJobCategory(val)}
+                    options={CATEGORY_OPTIONS.map((cat) => ({
+                      value: cat,
+                      label: cat,
+                    }))}
+                  />
                 </div>
               </div>
 

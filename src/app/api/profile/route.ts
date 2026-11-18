@@ -22,6 +22,37 @@ export async function PUT(request: Request) {
         ? String(body.location).trim()
         : user.location;
 
+    let username = user.username;
+    if (body.username !== undefined) {
+      const cleaned = String(body.username)
+        .trim()
+        .toLowerCase()
+        .replace(/^@+/, "")
+        .replace(/[^a-z0-9._]/g, "");
+      if (cleaned.length < 3) {
+        return NextResponse.json(
+          { error: "O @username deve ter pelo menos 3 caracteres válidos." },
+          { status: 400 }
+        );
+      }
+      username = `@${cleaned}`;
+      if (username !== user.username) {
+        const existing = await prisma.user.findFirst({
+          where: {
+            username,
+            NOT: { id: user.id },
+          },
+          select: { id: true },
+        });
+        if (existing) {
+          return NextResponse.json(
+            { error: "Este @username já está em uso por outra conta." },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     if (!name) {
       return NextResponse.json(
         { error: "O nome não pode ficar vazio." },
@@ -33,6 +64,7 @@ export async function PUT(request: Request) {
       where: { id: user.id },
       data: {
         name,
+        username,
         headline: headline || null,
         bio: bio || null,
         location: location || null,

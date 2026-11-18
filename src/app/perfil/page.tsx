@@ -10,7 +10,11 @@ import PerfilClient, {
 
 export const dynamic = "force-dynamic";
 
-export default async function PerfilPage() {
+export default async function PerfilPage({
+  searchParams,
+}: {
+  searchParams?: { user?: string };
+}) {
   const user = await getSessionUser();
   if (!user) {
     redirect("/login");
@@ -30,31 +34,29 @@ export default async function PerfilPage() {
         opportunity: true,
       },
     }),
-    user.role === "EMPRESA"
-      ? prisma.opportunity.findMany({
-          orderBy: { createdAt: "desc" },
-          take: 8,
+    prisma.opportunity.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      include: {
+        _count: {
+          select: { applications: true },
+        },
+        applications: {
           include: {
-            _count: {
-              select: { applications: true },
-            },
-            applications: {
-              include: {
-                candidate: {
-                  select: {
-                    id: true,
-                    name: true,
-                    username: true,
-                    email: true,
-                    phone: true,
-                  },
-                },
+            candidate: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                email: true,
+                phone: true,
               },
-              orderBy: { createdAt: "desc" },
             },
           },
-        })
-      : Promise.resolve([]),
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    }),
   ]);
 
   const userPosts: ProfilePostItem[] = postsRaw.map((p) => ({
@@ -103,6 +105,7 @@ export default async function PerfilPage() {
       initialPosts={userPosts}
       initialApplications={userApplications}
       initialCompanyJobs={companyJobs}
+      visitedUserParam={searchParams?.user || null}
     />
   );
 }
