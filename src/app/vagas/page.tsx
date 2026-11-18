@@ -6,7 +6,11 @@ import VagasClient, { OpportunityItem } from "@/components/VagasClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function VagasPage() {
+export default async function VagasPage({
+  searchParams,
+}: {
+  searchParams?: { highlight?: string };
+}) {
   const user = await getSessionUser();
   if (!user) {
     redirect("/login");
@@ -68,6 +72,10 @@ export default async function VagasPage() {
   );
 
   return (
-    <VagasClient user={user} initialOpportunities={initialOpportunities} />
+    <VagasClient
+      user={user}
+      initialOpportunities={initialOpportunities}
+      highlightQuery={searchParams?.highlight || null}
+    />
   );
 }

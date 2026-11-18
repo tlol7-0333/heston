@@ -202,7 +202,13 @@ export default function ExplorarClient({ user }: { user: SessionUserClient }) {
   return (
     <AppShell
       user={user}
-      rightSidebar={<RightSidebarWidgets role={user.role} />}
+      rightSidebar={
+        <RightSidebarWidgets
+          role={user.role}
+          userId={user.id}
+          currentUsername={user.username}
+        />
+      }
     >
       <div className="w-full px-4 sm:px-6 py-8 space-y-7 pb-24">
         {/* Barra de Pesquisa no Topo */}

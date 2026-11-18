@@ -50,3 +50,22 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Preferência de Acessibilidade: Reduzir Animações de Carrossel e Pulso */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Preferência de Acessibilidade: Bordas de Alto Contraste */
+html.high-contrast article,
+html.high-contrast input,
+html.high-contrast textarea,
+html.high-contrast button.border,
+html.high-contrast div.border {
+  border-color: rgba(255, 255, 255, 0.42) !important;
+}

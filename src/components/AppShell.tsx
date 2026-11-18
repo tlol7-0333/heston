@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -23,8 +23,26 @@ import {
   Info,
   KeyRound,
   CheckCircle2,
+  Heart,
+  MessageCircle,
+  Trash2,
 } from "lucide-react";
 import { HestonLogo } from "@/components/HestonLogo";
+import {
+  getReadNotificationsMap,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getAccessibilityPrefs,
+  saveAccessibilityPrefs,
+  applyAccessibilityClasses,
+  getLikedPostsMap,
+  getSavedPostsMap,
+  getUserCommentsList,
+  deletePostComment,
+  LikedPostRecord,
+  SavedPostRecord,
+  PostCommentRecord,
+} from "@/lib/persistence";
 
 export interface SessionUserClient {
   id: string;
@@ -47,6 +65,7 @@ interface AppShellProps {
 
 type SettingsTab =
   | "conta"
+  | "atividade"
   | "privacidade"
   | "notificacoes"
   | "acessibilidade"
@@ -73,9 +92,12 @@ export default function AppShell({
   // Modal Amplo de Configurações Gerais (estilo Twitter/X Settings)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("conta");
+  const [activitySubtab, setActivitySubtab] = useState<
+    "curtidas" | "comentarios"
+  >("curtidas");
   const [settingsToast, setSettingsToast] = useState<string | null>(null);
 
-  // Estados interativos das Configurações Gerais
+  // Estados interativos das Configurações Gerais e Persistência
   const [publicProfile, setPublicProfile] = useState(true);
   const [allowDirectMessages, setAllowDirectMessages] = useState(true);
   const [showActivityStatus, setShowActivityStatus] = useState(true);
@@ -85,7 +107,59 @@ export default function AppShell({
   const [reduceMotion, setReduceMotion] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
 
+  // Estado persistente de notificações lidas, curtidas, salvos e comentários
+  const [readNotifs, setReadNotifs] = useState<Record<string, boolean>>({});
+  const [myLikedPosts, setMyLikedPosts] = useState<LikedPostRecord[]>([]);
+  const [mySavedPosts, setMySavedPosts] = useState<SavedPostRecord[]>([]);
+  const [myComments, setMyComments] = useState<PostCommentRecord[]>([]);
+
   const isCompany = user.role === "EMPRESA";
+
+  const notificationItems = [
+    {
+      id: "notif-welcome",
+      title: "Bem-vindo(a) ao Heston!",
+      desc: isCompany
+        ? "Gerencie suas vagas abertas e acompanhe os talentos inscritos em 1 clique."
+        : "Explore os flashcards da comunidade e confira as novas vagas abertas.",
+      href: "/home",
+    },
+    {
+      id: "notif-opportunities",
+      title: isCompany
+        ? "Candidaturas simplificadas ativas"
+        : "Novas vagas em Porto Velho, RO",
+      desc: isCompany
+        ? "Confira a lista de candidatos inscritos na aba Vagas ou no seu Perfil Corporativo."
+        : "Oportunidades de Estágio, Júnior e Jovem Aprendiz estão disponíveis na aba Vagas.",
+      href: "/vagas",
+    },
+    {
+      id: "notif-communities",
+      title: "Novas discussões nas Comunidades",
+      desc: "Participe dos grupos regionais de tecnologia, carreira e empreendedorismo na aba Notas.",
+      href: "/notas",
+    },
+  ];
+
+  const syncPersistentData = useCallback(() => {
+    setReadNotifs(getReadNotificationsMap(user.id));
+    const a11y = getAccessibilityPrefs();
+    setReduceMotion(a11y.reduceMotion);
+    setHighContrast(a11y.highContrast);
+    applyAccessibilityClasses(a11y);
+
+    setMyLikedPosts(Object.values(getLikedPostsMap(user.id)));
+    setMySavedPosts(Object.values(getSavedPostsMap(user.id)));
+    setMyComments(getUserCommentsList(user.id));
+  }, [user.id]);
+
+  useEffect(() => {
+    syncPersistentData();
+    const handler = () => syncPersistentData();
+    window.addEventListener("heston:state", handler);
+    return () => window.removeEventListener("heston:state", handler);
+  }, [syncPersistentData]);
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
@@ -99,6 +173,63 @@ export default function AppShell({
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
+
+  const unreadNotificationsCount = notificationItems.filter(
+    (n) => !readNotifs[n.id]
+  ).length;
+
+  function handleOpenNotificationsModal() {
+    setShowNotifications((prev) => !prev);
+  }
+
+  function handleClickNotificationItem(notifId: string, href: string) {
+    const updated = markNotificationRead(user.id, notifId);
+    setReadNotifs(updated);
+    setShowNotifications(false);
+    router.push(href);
+  }
+
+  function handleMarkAllNotificationsRead() {
+    const updated = markAllNotificationsRead(
+      user.id,
+      notificationItems.map((n) => n.id)
+    );
+    setReadNotifs(updated);
+  }
+
+  function handleToggleReduceMotion() {
+    const nextVal = !reduceMotion;
+    setReduceMotion(nextVal);
+    saveAccessibilityPrefs({
+      reduceMotion: nextVal,
+      highContrast,
+    });
+    triggerSettingsSaved(
+      nextVal
+        ? "Animações reduzidas ativadas em toda a plataforma!"
+        : "Animações padrão restauradas!"
+    );
+  }
+
+  function handleToggleHighContrast() {
+    const nextVal = !highContrast;
+    setHighContrast(nextVal);
+    saveAccessibilityPrefs({
+      reduceMotion,
+      highContrast: nextVal,
+    });
+    triggerSettingsSaved(
+      nextVal
+        ? "Bordas de alto contraste ativadas!"
+        : "Bordas padrão restauradas!"
+    );
+  }
+
+  function handleDeleteMyComment(postId: string, commentId: string) {
+    deletePostComment(postId, commentId);
+    syncPersistentData();
+    triggerSettingsSaved("Comentário excluído com sucesso!");
+  }
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -169,11 +300,14 @@ export default function AppShell({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setShowNotifications((p) => !p)}
+            onClick={handleOpenNotificationsModal}
             aria-label="Notificações"
-            className="p-2 rounded-full text-zinc-300 hover:bg-zinc-900"
+            className="relative p-2 rounded-full text-zinc-300 hover:bg-zinc-900"
           >
             <Bell className="w-5 h-5" />
+            {unreadNotificationsCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#087E96]" />
+            )}
           </button>
           <button
             type="button"
@@ -273,17 +407,26 @@ export default function AppShell({
                 );
               })}
 
-              {/* Notificações */}
+              {/* Notificações com Indicador Persistente no localStorage */}
               <button
                 type="button"
-                onClick={() => setShowNotifications((prev) => !prev)}
-                className="w-full flex items-center gap-4 px-3 py-2.5 rounded-full text-sm text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium transition"
+                onClick={handleOpenNotificationsModal}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-full text-sm text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium transition"
               >
-                <div className="relative">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#087E96]" />
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Bell className="w-5 h-5" />
+                    {unreadNotificationsCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#087E96] ring-2 ring-black" />
+                    )}
+                  </div>
+                  <span>Notificações</span>
                 </div>
-                <span>Notificações</span>
+                {unreadNotificationsCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#087E96] text-white text-[10px] font-extrabold">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
               </button>
 
               {/* Perfil (Ícone Building2 para Empresa e User para Usuário) */}
@@ -376,12 +519,25 @@ export default function AppShell({
                   type="button"
                   onClick={() => {
                     setMoreMenuOpen(false);
+                    setSettingsTab("atividade");
+                    setSettingsModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
+                >
+                  <Heart className="w-4 h-4 text-pink-400" />
+                  <span>Minhas Curtidas & Comentários</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
                     setInfoModal("salvos");
                   }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
                 >
                   <Bookmark className="w-4 h-4 text-[#087E96]" />
-                  <span>Salvos</span>
+                  <span>Salvos ({mySavedPosts.length})</span>
                 </button>
 
                 <button
@@ -425,8 +581,14 @@ export default function AppShell({
           </div>
         </aside>
 
-        {/* Coluna Central Confortável e Harmoniosa */}
-        <main className="flex-1 min-w-0 max-w-[760px]">{children}</main>
+        {/* Coluna Central com Largura Padronizada (Expande em /notas quando não há rightSidebar) */}
+        <main
+          className={`flex-1 min-w-0 w-full ${
+            rightSidebar ? "max-w-[760px]" : "max-w-[1060px]"
+          }`}
+        >
+          {children}
+        </main>
 
         {/* Sidebar Direita */}
         {rightSidebar && (
@@ -436,10 +598,10 @@ export default function AppShell({
         )}
       </div>
 
-      {/* Modal Amplo de Configurações Gerais da Plataforma (Estilo Twitter/X Settings) */}
+      {/* Modal Amplo de Configurações Gerais da Plataforma */}
       {settingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4 py-6">
-          <div className="w-full max-w-3xl h-[540px] max-h-[90vh] rounded-3xl bg-[#0D0D10] border border-zinc-800 shadow-2xl overflow-hidden flex flex-col md:flex-row">
+          <div className="w-full max-w-3xl h-[560px] max-h-[90vh] rounded-3xl bg-[#0D0D10] border border-zinc-800 shadow-2xl overflow-hidden flex flex-col md:flex-row">
             {/* Menu Lateral das Configurações */}
             <div className="w-full md:w-64 shrink-0 border-b md:border-b-0 md:border-r border-zinc-800/90 p-5 flex flex-col justify-between bg-[#09090B]">
               <div className="space-y-4">
@@ -463,6 +625,11 @@ export default function AppShell({
                       id: "conta" as SettingsTab,
                       label: "Sua Conta",
                       icon: isCompany ? Building2 : UserIcon,
+                    },
+                    {
+                      id: "atividade" as SettingsTab,
+                      label: "Curtidas & Comentários",
+                      icon: Heart,
                     },
                     {
                       id: "privacidade" as SettingsTab,
@@ -523,6 +690,8 @@ export default function AppShell({
                   <div>
                     <h3 className="text-lg font-extrabold">
                       {settingsTab === "conta" && "Informações da Sua Conta"}
+                      {settingsTab === "atividade" &&
+                        "Sua Atividade: Curtidas e Comentários"}
                       {settingsTab === "privacidade" &&
                         "Privacidade e Segurança"}
                       {settingsTab === "notificacoes" &&
@@ -534,6 +703,8 @@ export default function AppShell({
                     <p className="text-xs text-zinc-400 mt-0.5">
                       {settingsTab === "conta" &&
                         "Consulte seus dados cadastrais, credenciais e tipo de perfil."}
+                      {settingsTab === "atividade" &&
+                        "Histórico de todas as publicações que você curtiu e comentários enviados."}
                       {settingsTab === "privacidade" &&
                         "Controle quem pode ver suas atividades e envie mensagens diretas."}
                       {settingsTab === "notificacoes" &&
@@ -637,6 +808,106 @@ export default function AppShell({
                         Verificar
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {settingsTab === "atividade" && (
+                  <div className="space-y-4 text-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActivitySubtab("curtidas")}
+                        className={`px-4 py-1.5 rounded-full font-extrabold inline-flex items-center gap-1.5 transition ${
+                          activitySubtab === "curtidas"
+                            ? "bg-pink-500/20 text-pink-300 border border-pink-500/50"
+                            : "bg-zinc-900 text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        <Heart className="w-3.5 h-3.5" />
+                        <span>Curtidas ({myLikedPosts.length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivitySubtab("comentarios")}
+                        className={`px-4 py-1.5 rounded-full font-extrabold inline-flex items-center gap-1.5 transition ${
+                          activitySubtab === "comentarios"
+                            ? "bg-[#087E96]/25 text-cyan-300 border border-[#087E96]"
+                            : "bg-zinc-900 text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>Meus Comentários ({myComments.length})</span>
+                      </button>
+                    </div>
+
+                    {activitySubtab === "curtidas" ? (
+                      myLikedPosts.length === 0 ? (
+                        <div className="p-8 rounded-2xl bg-[#141418] border border-zinc-800 text-center text-zinc-400">
+                          Você ainda não curtiu nenhuma publicação no Feed.
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5 max-h-64 overflow-y-auto no-scrollbar">
+                          {myLikedPosts.map((item) => (
+                            <div
+                              key={item.postId}
+                              className="p-3.5 rounded-2xl bg-[#141418] border border-zinc-800 space-y-1"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-white">
+                                  {item.authorName}{" "}
+                                  <span className="text-zinc-400 font-normal">
+                                    ({item.authorUsername})
+                                  </span>
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-pink-400 text-[10px] font-bold">
+                                  <Heart className="w-3 h-3 fill-pink-500" />
+                                  <span>Curtido</span>
+                                </span>
+                              </div>
+                              <p className="text-zinc-300 line-clamp-2">
+                                {item.content}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    ) : myComments.length === 0 ? (
+                      <div className="p-8 rounded-2xl bg-[#141418] border border-zinc-800 text-center text-zinc-400">
+                        Você ainda não enviou comentários nas publicações.
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5 max-h-64 overflow-y-auto no-scrollbar">
+                        {myComments.map((cmt) => (
+                          <div
+                            key={cmt.id}
+                            className="p-3.5 rounded-2xl bg-[#141418] border border-zinc-800 flex items-start justify-between gap-3"
+                          >
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-[11px] text-zinc-400 truncate">
+                                Em resposta a{" "}
+                                <strong className="text-zinc-200">
+                                  {cmt.postAuthorName}
+                                </strong>
+                                : &ldquo;{cmt.postSnippet}&rdquo;
+                              </p>
+                              <p className="text-white font-semibold">
+                                {cmt.text}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteMyComment(cmt.postId, cmt.id)
+                              }
+                              title="Excluir comentário"
+                              className="p-1.5 rounded-full text-red-400 hover:bg-red-950/40 shrink-0 transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -788,15 +1059,12 @@ export default function AppShell({
                           Reduzir Animações de Carrossel
                         </p>
                         <p className="text-zinc-400 text-[11px] mt-0.5">
-                          Suavizar efeitos de transição e pulso nos placeholders de mídia.
+                          Desativar animações de pulso/shimmer e transições nos carrosséis (persiste no navegador).
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setReduceMotion((p) => !p);
-                          triggerSettingsSaved();
-                        }}
+                        onClick={handleToggleReduceMotion}
                         className={`w-11 h-6 rounded-full transition p-0.5 shrink-0 ${
                           reduceMotion ? "bg-[#087E96]" : "bg-zinc-700"
                         }`}
@@ -815,15 +1083,12 @@ export default function AppShell({
                           Bordas de Alto Contraste
                         </p>
                         <p className="text-zinc-400 text-[11px] mt-0.5">
-                          Realçar contornos de inputs, cards e botões de ação.
+                          Realçar visivelmente o contorno de todos os cards, inputs e botões do site.
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setHighContrast((p) => !p);
-                          triggerSettingsSaved();
-                        }}
+                        onClick={handleToggleHighContrast}
                         className={`w-11 h-6 rounded-full transition p-0.5 shrink-0 ${
                           highContrast ? "bg-[#087E96]" : "bg-zinc-700"
                         }`}
@@ -890,44 +1155,62 @@ export default function AppShell({
         </div>
       )}
 
-      {/* Drawer/Modal de Notificações */}
+      {/* Drawer/Modal de Notificações Persistentes */}
       {showNotifications && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 bg-black/50 backdrop-blur-sm px-4">
-          <div className="w-full max-w-sm rounded-3xl bg-[#111111] border border-zinc-800 p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-3xl bg-[#111111] border border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-extrabold flex items-center gap-2">
                 <Bell className="w-4 h-4 text-[#087E96]" />
-                <span>Notificações Recentes</span>
+                <span>Notificações</span>
               </h3>
-              <button
-                type="button"
-                onClick={() => setShowNotifications(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                {unreadNotificationsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllNotificationsRead}
+                    className="text-[11px] font-bold text-[#087E96] hover:underline"
+                  >
+                    Marcar todas como lidas
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowNotifications(false)}
+                  className="p-1 rounded-full text-zinc-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
-                <p className="font-bold text-white">Bem-vindo(a) ao Heston!</p>
-                <p className="text-zinc-400 mt-0.5">
-                  {isCompany
-                    ? "Gerencie suas vagas abertas e acompanhe os talentos inscritos em 1 clique."
-                    : "Explore os flashcards da comunidade e confira as novas vagas abertas."}
-                </p>
-              </div>
-              <div className="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
-                <p className="font-bold text-cyan-300">
-                  {isCompany
-                    ? "14 candidaturas recebidas"
-                    : "Novas vagas em Porto Velho, RO"}
-                </p>
-                <p className="text-zinc-400 mt-0.5">
-                  {isCompany
-                    ? "Confira a lista de candidatos inscritos na aba Vagas ou no seu Perfil Corporativo."
-                    : "Oportunidades de Estágio, Júnior e Jovem Aprendiz estão disponíveis na aba Vagas."}
-                </p>
-              </div>
+            <div className="space-y-2.5 text-xs">
+              {notificationItems.map((notif) => {
+                const isRead = Boolean(readNotifs[notif.id]);
+                return (
+                  <button
+                    key={notif.id}
+                    type="button"
+                    onClick={() =>
+                      handleClickNotificationItem(notif.id, notif.href)
+                    }
+                    className={`w-full text-left p-3.5 rounded-2xl border transition flex items-start justify-between gap-3 ${
+                      isRead
+                        ? "bg-zinc-900/40 border-zinc-800/80 text-zinc-400"
+                        : "bg-zinc-900/95 border-[#087E96]/50 text-white hover:bg-zinc-800/80"
+                    }`}
+                  >
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-white">{notif.title}</p>
+                      <p className="text-zinc-400 leading-relaxed">
+                        {notif.desc}
+                      </p>
+                    </div>
+                    {!isRead && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#087E96] shrink-0 mt-1" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -942,7 +1225,7 @@ export default function AppShell({
                 {infoModal === "salvos" ? (
                   <>
                     <Bookmark className="w-4 h-4 text-[#087E96]" />
-                    <span>Itens e Publicações Salvas</span>
+                    <span>Publicações Salvas ({mySavedPosts.length})</span>
                   </>
                 ) : (
                   <>
@@ -959,11 +1242,36 @@ export default function AppShell({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              {infoModal === "salvos"
-                ? "Suas publicações favoritadas, comunidades e candidaturas ficam registradas na sua conta para consulta rápida."
-                : "O Heston protege seus dados utilizando senhas com hash bcryptjs, sessões em Cookies HTTP-only assinados via JWT e consultas parametrizadas no PostgreSQL (Neon) via Prisma ORM."}
-            </p>
+            {infoModal === "salvos" ? (
+              mySavedPosts.length === 0 ? (
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Você ainda não salvou nenhuma publicação. Clique em &ldquo;Salvar&rdquo; nos posts do Feed para guardá-los aqui.
+                </p>
+              ) : (
+                <div className="space-y-2.5 max-h-60 overflow-y-auto no-scrollbar text-xs">
+                  {mySavedPosts.map((item) => (
+                    <div
+                      key={item.postId}
+                      className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-1"
+                    >
+                      <p className="font-bold text-white">
+                        {item.authorName}{" "}
+                        <span className="text-zinc-400 font-normal">
+                          ({item.authorUsername})
+                        </span>
+                      </p>
+                      <p className="text-zinc-300 line-clamp-2">
+                        {item.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : (
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                O Heston protege seus dados utilizando senhas com hash bcryptjs, sessões em Cookies HTTP-only assinados via JWT e consultas parametrizadas no PostgreSQL (Neon) via Prisma ORM.
+              </p>
+            )}
             <button
               type="button"
               onClick={() => setInfoModal(null)}

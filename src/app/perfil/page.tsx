@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function PerfilPage({
   searchParams,
 }: {
-  searchParams?: { user?: string };
+  searchParams?: { user?: string; tab?: string };
 }) {
   const user = await getSessionUser();
   if (!user) {
@@ -36,7 +36,7 @@ export default async function PerfilPage({
     }),
     prisma.opportunity.findMany({
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 15,
       include: {
         _count: {
           select: { applications: true },
@@ -64,6 +64,7 @@ export default async function PerfilPage({
     title: p.title,
     content: p.content,
     isFlashcard: p.isFlashcard,
+    cardColor: p.cardColor,
     createdAt: p.createdAt.toISOString(),
   }));
 
@@ -84,6 +85,7 @@ export default async function PerfilPage({
 
   const companyJobs: ProfileCompanyJobItem[] = companyJobsRaw.map((job) => ({
     id: job.id,
+    companyId: job.companyId,
     title: job.title,
     companyName: job.companyName,
     category: job.category,
@@ -106,6 +108,7 @@ export default async function PerfilPage({
       initialApplications={userApplications}
       initialCompanyJobs={companyJobs}
       visitedUserParam={searchParams?.user || null}
+      initialTabParam={searchParams?.tab || null}
     />
   );
 }

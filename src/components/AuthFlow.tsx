@@ -8,6 +8,9 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
+  X,
+  CheckCircle2,
+  KeyRound,
 } from "lucide-react";
 import { HestonLogo, GoogleIcon, FacebookIcon } from "@/components/HestonLogo";
 
@@ -325,6 +328,41 @@ export default function AuthFlow({
 
   const [socialNotice, setSocialNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // 4. Estado isolado do modal "Esqueci minha senha"
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotShowPassword, setForgotShowPassword] = useState(false);
+  const [forgotErrors, setForgotErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+
+  function handleForgotPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const errs: { email?: string; password?: string } = {};
+    if (!forgotEmail.trim()) {
+      errs.email = "Este campo é obrigatório";
+    } else if (!EMAIL_REGEX.test(forgotEmail.trim())) {
+      errs.email = "Insira um e-mail válido";
+    }
+
+    if (!forgotNewPassword) {
+      errs.password = "Informe a nova senha desejada";
+    } else if (forgotNewPassword.length < 6) {
+      errs.password = "A senha deve ter pelo menos 6 caracteres";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setForgotErrors(errs);
+      return;
+    }
+
+    setForgotErrors({});
+    setForgotSuccess(true);
+  }
 
   function handleSocialClick() {
     setSocialNotice(
@@ -810,9 +848,25 @@ export default function AuthFlow({
                   </button>
                 </div>
                 <FieldErrorMessage message={loginForm.fieldErrors.password} />
+
+                <div className="flex justify-end pt-1.5 pr-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotEmail(loginForm.email);
+                      setForgotNewPassword("");
+                      setForgotErrors({});
+                      setForgotSuccess(false);
+                      setForgotModalOpen(true);
+                    }}
+                    className="text-xs font-bold text-[#087E96] hover:text-cyan-300 hover:underline transition"
+                  >
+                    Esqueci minha senha
+                  </button>
+                </div>
               </div>
 
-              <div className="pt-4">
+              <div className="pt-2">
                 <button
                   type="submit"
                   disabled={loading}
@@ -835,6 +889,143 @@ export default function AuthFlow({
             </div>
           </div>
         </div>
+
+        {/* Modal Translúcido "Esqueci minha senha" em Dark Mode com Validação Inline */}
+        {forgotModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+            <div className="relative w-full max-w-md rounded-3xl bg-zinc-950/85 backdrop-blur-xl border border-zinc-800 p-7 shadow-2xl space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-[#087E96]/20 border border-[#087E96] flex items-center justify-center text-[#087E96]">
+                    <KeyRound className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">
+                      Recuperar / Redefinir Senha
+                    </h3>
+                    <p className="text-[11px] text-zinc-400">
+                      Informe seu e-mail cadastrado para redefinir o acesso
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForgotModalOpen(false)}
+                  className="p-1.5 rounded-full text-zinc-400 hover:text-white transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {forgotSuccess ? (
+                <div className="space-y-4">
+                  <div className="rounded-2xl bg-emerald-950/60 border border-emerald-500/40 p-4 flex items-start gap-3 text-xs text-emerald-200">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-extrabold text-white">
+                        Solicitação de redefinição registrada!
+                      </p>
+                      <p className="leading-relaxed">
+                        Enviamos as instruções de confirmação para{" "}
+                        <strong className="text-white">{forgotEmail}</strong>.
+                        Você já pode retornar ao login.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForgotModalOpen(false)}
+                    className="w-full h-11 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-white font-bold text-xs transition"
+                  >
+                    Voltar para o Login
+                  </button>
+                </div>
+              ) : (
+                <form
+                  noValidate
+                  onSubmit={handleForgotPasswordSubmit}
+                  className="space-y-3.5"
+                >
+                  <div>
+                    <input
+                      type="text"
+                      inputMode="email"
+                      value={forgotEmail}
+                      onChange={(e) => {
+                        setForgotEmail(e.target.value);
+                        if (forgotErrors.email) {
+                          setForgotErrors((prev) => ({
+                            ...prev,
+                            email: undefined,
+                          }));
+                        }
+                      }}
+                      placeholder="E-mail da sua conta"
+                      className={`w-full h-12 rounded-full bg-black border px-5 text-xs text-white placeholder-zinc-400 outline-none transition ${
+                        forgotErrors.email
+                          ? "border-red-500 focus:border-red-500"
+                          : "border-zinc-700 focus:border-[#087E96]"
+                      }`}
+                    />
+                    <FieldErrorMessage message={forgotErrors.email} />
+                  </div>
+
+                  <div>
+                    <div className="relative w-full">
+                      <input
+                        type={forgotShowPassword ? "text" : "password"}
+                        value={forgotNewPassword}
+                        onChange={(e) => {
+                          setForgotNewPassword(e.target.value);
+                          if (forgotErrors.password) {
+                            setForgotErrors((prev) => ({
+                              ...prev,
+                              password: undefined,
+                            }));
+                          }
+                        }}
+                        placeholder="Nova senha (mín. 6 caracteres)"
+                        className={`w-full h-12 rounded-full bg-black border pl-5 pr-11 text-xs text-white placeholder-zinc-400 outline-none transition ${
+                          forgotErrors.password
+                            ? "border-red-500 focus:border-red-500"
+                            : "border-zinc-700 focus:border-[#087E96]"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setForgotShowPassword((p) => !p)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white transition"
+                      >
+                        {forgotShowPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                    <FieldErrorMessage message={forgotErrors.password} />
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setForgotModalOpen(false)}
+                      className="px-5 h-11 rounded-full border border-zinc-700 hover:border-white text-xs font-bold text-zinc-300 hover:text-white transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 h-11 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-white font-bold text-xs transition"
+                    >
+                      Redefinir Senha
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
       </main>
     );
   }

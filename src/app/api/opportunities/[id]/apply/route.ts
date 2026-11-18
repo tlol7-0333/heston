@@ -73,3 +73,45 @@ export async function POST(
     );
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Não autenticado." },
+        { status: 401 }
+      );
+    }
+
+    const opportunityId = params.id;
+
+    await prisma.application.deleteMany({
+      where: {
+        opportunityId,
+        candidateId: user.id,
+      },
+    });
+
+    const totalApplications = await prisma.application.count({
+      where: { opportunityId },
+    });
+
+    return NextResponse.json(
+      {
+        applied: false,
+        applicationsCount: totalApplications,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Erro ao cancelar candidatura:", error);
+    return NextResponse.json(
+      { error: "Não foi possível cancelar a candidatura." },
+      { status: 500 }
+    );
+  }
+}

@@ -18,10 +18,15 @@ import {
   ChevronRight,
   ArrowRight,
   ArrowLeft,
+  Trash2,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 import RightSidebarWidgets from "@/components/RightSidebarWidgets";
 import CustomSelect from "@/components/CustomSelect";
+import {
+  getDeletedOpportunitiesMap,
+  markOpportunityDeleted,
+} from "@/lib/persistence";
 
 export interface CandidateInfo {
   id: string;
@@ -54,6 +59,7 @@ export interface OpportunityItem {
 interface VagasClientProps {
   user: SessionUserClient;
   initialOpportunities: OpportunityItem[];
+  highlightQuery?: string | null;
 }
 
 const PRIMARY_FILTER_PILLS = [
@@ -83,12 +89,12 @@ const CATEGORY_OPTIONS = [
 ];
 
 const VIBRANT_PALETTE = [
-  "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]", // Azul Oceano
-  "from-purple-600 via-indigo-600 to-fuchsia-500", // Roxo Indigo
-  "from-emerald-600 via-teal-500 to-cyan-600", // Verde Esmeralda/Teal
-  "from-rose-600 via-pink-600 to-fuchsia-600", // Magenta Rose
-  "from-amber-500 via-orange-500 to-yellow-500", // Âmbar Dourado
-  "from-[#087E96] via-cyan-500 to-blue-600", // Ciano Elétrico
+  "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]",
+  "from-purple-600 via-indigo-600 to-fuchsia-500",
+  "from-emerald-600 via-teal-500 to-cyan-600",
+  "from-rose-600 via-pink-600 to-fuchsia-600",
+  "from-amber-500 via-orange-500 to-yellow-500",
+  "from-[#087E96] via-cyan-500 to-blue-600",
 ];
 
 const CARD_GRADIENTS = [
@@ -240,11 +246,15 @@ function OpportunityCarouselRow({
 export default function VagasClient({
   user,
   initialOpportunities,
+  highlightQuery = null,
 }: VagasClientProps) {
   const isCompany = user.role === "EMPRESA";
 
   const [opportunities, setOpportunities] =
     useState<OpportunityItem[]>(initialOpportunities);
+  const [deletedOppIds, setDeletedOppIds] = useState<Record<string, boolean>>(
+    {}
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todas");
   const [onlyMyCompanyJobs, setOnlyMyCompanyJobs] = useState(false);
@@ -252,10 +262,57 @@ export default function VagasClient({
   const [expandedSection, setExpandedSection] = useState<
     "recomendacoes" | "emprego" | "estagio" | "cursos" | null
   >(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [canFilterLeft, setCanFilterLeft] = useState(false);
   const [canFilterRight, setCanFilterRight] = useState(false);
+
+  // Estado de candidatura/cancelamento em 1 clique por vaga
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+
+  // Modal de detalhes ("SAIBA MAIS")
+  const [selectedOpportunity, setSelectedOpportunity] =
+    useState<OpportunityItem | null>(null);
+
+  // Modal de publicar nova vaga (exclusivo EMPRESA)
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [jobTitle, setJobTitle] = useState("");
+  const [jobCompany, setJobCompany] = useState(isCompany ? user.name : "");
+  const [jobCategory, setJobCategory] = useState("Estágio");
+  const [jobLocation, setJobLocation] = useState("Remoto • Porto Velho, RO");
+  const [jobSalary, setJobSalary] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [jobGradient, setJobGradient] = useState(CARD_GRADIENTS[0].value);
+  const [jobErrors, setJobErrors] = useState<NewJobErrors>({});
+  const [jobApiError, setJobApiError] = useState<string | null>(null);
+  const [creatingJob, setCreatingJob] = useState(false);
+
+  function triggerToast(msg: string) {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3200);
+  }
+
+  useEffect(() => {
+    setDeletedOppIds(getDeletedOpportunitiesMap());
+  }, []);
+
+  // Se veio de um Flashcard com ?highlight=... abre ou destaca a oportunidade correspondente
+  useEffect(() => {
+    if (!highlightQuery) return;
+    const q = highlightQuery.trim().toLowerCase();
+    const matched = opportunities.find(
+      (o) =>
+        o.id.toLowerCase() === q ||
+        o.title.toLowerCase().includes(q.slice(0, 12)) ||
+        o.companyName.toLowerCase().includes(q)
+    );
+    if (matched) {
+      setSelectedOpportunity(matched);
+    } else if (opportunities.length > 0) {
+      setSelectedOpportunity(opportunities[0]);
+    }
+  }, [highlightQuery, opportunities]);
 
   const updateFilterOverflow = useCallback(() => {
     const el = filterBarRef.current;
@@ -273,32 +330,21 @@ export default function VagasClient({
     return () => window.removeEventListener("resize", updateFilterOverflow);
   }, [showMoreCategories, updateFilterOverflow]);
 
-  // Estado de candidatura em 1 clique por vaga
-  const [applyingId, setApplyingId] = useState<string | null>(null);
+  function isMyCompanyOpportunity(opp: OpportunityItem): boolean {
+    if (!isCompany) return false;
+    return (
+      opp.companyId === user.id ||
+      opp.companyName.trim().toLowerCase() === user.name.trim().toLowerCase()
+    );
+  }
 
-  // Modal de detalhes ("SAIBA MAIS")
-  const [selectedOpportunity, setSelectedOpportunity] =
-    useState<OpportunityItem | null>(null);
+  const activeOpportunities = opportunities.filter(
+    (o) => !deletedOppIds[o.id]
+  );
 
-  // Modal de publicar nova vaga (exclusivo EMPRESA) com estado e validação inline isolados
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [jobTitle, setJobTitle] = useState("");
-  const [jobCompany, setJobCompany] = useState(isCompany ? user.name : "");
-  const [jobCategory, setJobCategory] = useState("Estágio");
-  const [jobLocation, setJobLocation] = useState("Remoto • Porto Velho, RO");
-  const [jobSalary, setJobSalary] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
-  const [jobGradient, setJobGradient] = useState(CARD_GRADIENTS[0].value);
-  const [jobErrors, setJobErrors] = useState<NewJobErrors>({});
-  const [jobApiError, setJobApiError] = useState<string | null>(null);
-  const [creatingJob, setCreatingJob] = useState(false);
-
-  const filteredOpportunities = opportunities.filter((opp) => {
+  const filteredOpportunities = activeOpportunities.filter((opp) => {
     if (onlyMyCompanyJobs && isCompany) {
-      const isMine =
-        opp.companyId === user.id ||
-        opp.companyName.toLowerCase() === user.name.toLowerCase();
-      if (!isMine) return false;
+      if (!isMyCompanyOpportunity(opp)) return false;
     }
 
     const query = searchTerm.trim().toLowerCase();
@@ -332,48 +378,79 @@ export default function VagasClient({
     );
   });
 
-  async function handleOneClickApply(opportunityId: string) {
+  /* Candidatar-se em 1 Clique OU Cancelar/Desfazer Candidatura */
+  async function handleToggleApplication(opp: OpportunityItem) {
     if (user.role !== "USUARIO") return;
-    setApplyingId(opportunityId);
+    setApplyingId(opp.id);
+
+    const isCanceling = opp.hasApplied;
 
     try {
-      const res = await fetch(`/api/opportunities/${opportunityId}/apply`, {
-        method: "POST",
+      const res = await fetch(`/api/opportunities/${opp.id}/apply`, {
+        method: isCanceling ? "DELETE" : "POST",
       });
       const data = await res.json();
 
       if (res.ok) {
+        const nextApplied = !isCanceling;
+        const nextCount =
+          typeof data.applicationsCount === "number"
+            ? data.applicationsCount
+            : Math.max(0, opp.applicationsCount + (nextApplied ? 1 : -1));
+
         setOpportunities((prev) =>
-          prev.map((opp) =>
-            opp.id === opportunityId
+          prev.map((item) =>
+            item.id === opp.id
               ? {
-                  ...opp,
-                  hasApplied: true,
-                  applicationsCount:
-                    typeof data.applicationsCount === "number"
-                      ? data.applicationsCount
-                      : opp.applicationsCount + 1,
+                  ...item,
+                  hasApplied: nextApplied,
+                  applicationsCount: nextCount,
                 }
-              : opp
+              : item
           )
         );
 
         setSelectedOpportunity((prev) =>
-          prev && prev.id === opportunityId
+          prev && prev.id === opp.id
             ? {
                 ...prev,
-                hasApplied: true,
-                applicationsCount:
-                  typeof data.applicationsCount === "number"
-                    ? data.applicationsCount
-                    : prev.applicationsCount + 1,
+                hasApplied: nextApplied,
+                applicationsCount: nextCount,
               }
             : prev
+        );
+
+        triggerToast(
+          nextApplied
+            ? "Candidatura enviada em 1 clique!"
+            : "Sua candidatura foi cancelada com sucesso"
         );
       }
     } finally {
       setApplyingId(null);
     }
+  }
+
+  /* Excluir Vaga Publicada (Exclusivo para a Empresa Dona da Vaga) */
+  async function handleDeleteOpportunity(opp: OpportunityItem) {
+    if (!isMyCompanyOpportunity(opp)) return;
+
+    const updatedDeleted = markOpportunityDeleted(opp.id);
+    setDeletedOppIds(updatedDeleted);
+    setOpportunities((prev) => prev.filter((item) => item.id !== opp.id));
+    if (selectedOpportunity?.id === opp.id) {
+      setSelectedOpportunity(null);
+    }
+
+    try {
+      await fetch(`/api/opportunities/${opp.id}`, {
+        method: "DELETE",
+      });
+    } catch {
+      // persisted in localStorage
+    }
+
+    triggerToast("Vaga excluída com sucesso");
   }
 
   function validateJobForm(): NewJobErrors {
@@ -437,6 +514,7 @@ export default function VagasClient({
       setJobSalary("");
       setJobDescription("");
       setCreateModalOpen(false);
+      triggerToast("Nova oportunidade publicada com sucesso!");
     } catch {
       setJobApiError("Erro de conexão ao salvar vaga.");
     } finally {
@@ -451,6 +529,7 @@ export default function VagasClient({
     isGrid = false
   ) {
     const isApplying = applyingId === opp.id;
+    const isMine = isMyCompanyOpportunity(opp);
     const variedGradient =
       VIBRANT_PALETTE[colorIndex % VIBRANT_PALETTE.length];
 
@@ -476,10 +555,22 @@ export default function VagasClient({
             <span className="px-2.5 py-0.5 rounded-full bg-black/30 text-[10px] font-extrabold uppercase tracking-wider truncate">
               {opp.category} • {opp.location}
             </span>
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 text-[10px] font-extrabold shrink-0">
-              <Users className="w-3 h-3" />
-              <span>{opp.applicationsCount}</span>
-            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 text-[10px] font-extrabold">
+                <Users className="w-3 h-3" />
+                <span>{opp.applicationsCount}</span>
+              </span>
+              {isMine && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteOpportunity(opp)}
+                  title="Excluir minha vaga"
+                  className="p-1 rounded-full bg-black/40 hover:bg-red-600/90 border border-white/20 text-white transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="my-auto">
@@ -511,18 +602,27 @@ export default function VagasClient({
             {user.role === "USUARIO" && (
               <button
                 type="button"
-                disabled={opp.hasApplied || isApplying}
-                onClick={() => handleOneClickApply(opp.id)}
+                disabled={isApplying}
+                onClick={() => handleToggleApplication(opp)}
+                title={
+                  opp.hasApplied
+                    ? "Clique para cancelar candidatura"
+                    : "Candidatar-se em 1 clique"
+                }
                 className={`px-3 py-1.5 rounded-full text-[9px] font-extrabold flex items-center gap-1 transition shadow shrink-0 ${
                   opp.hasApplied
-                    ? "bg-emerald-950/90 text-emerald-300 border border-emerald-400/60 cursor-default"
+                    ? "bg-emerald-950/90 hover:bg-red-950/90 text-emerald-300 hover:text-red-200 border border-emerald-400/60 hover:border-red-400/60"
                     : "bg-black/80 hover:bg-black text-white border border-white/30"
                 }`}
               >
                 {opp.hasApplied ? (
                   <>
                     <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                    <span>Candidatura enviada ✓</span>
+                    <span>
+                      {isApplying
+                        ? "Cancelando..."
+                        : "Candidatura enviada ✓ (Cancelar)"}
+                    </span>
                   </>
                 ) : (
                   <>
@@ -547,7 +647,6 @@ export default function VagasClient({
     activeFilter !== "Todas" ||
     onlyMyCompanyJobs;
 
-  // Seções específicas por categoria (substituindo "Mais para você")
   const recomendacoesList = filteredOpportunities.slice(0, 6);
 
   const vagasEmpregoList = filteredOpportunities.filter(
@@ -569,7 +668,7 @@ export default function VagasClient({
       o.category.toLowerCase() === "eventos"
   );
 
-  const totalCandidatesAcrossAll = opportunities.reduce(
+  const totalCandidatesAcrossAll = activeOpportunities.reduce(
     (acc, item) => acc + item.applicationsCount,
     0
   );
@@ -577,9 +676,23 @@ export default function VagasClient({
   return (
     <AppShell
       user={user}
-      rightSidebar={<RightSidebarWidgets role={user.role} />}
+      rightSidebar={
+        <RightSidebarWidgets
+          role={user.role}
+          userId={user.id}
+          currentUsername={user.username}
+        />
+      }
     >
-      <div className="w-full px-4 sm:px-6 py-8 space-y-8 pb-24">
+      <div className="w-full px-4 sm:px-6 py-8 space-y-8 pb-24 relative">
+        {/* Toast Centralizado no Topo da Tela */}
+        {toastMsg && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-3.5 rounded-full bg-zinc-900/95 border border-[#087E96] text-xs font-extrabold text-white shadow-2xl flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-[#087E96] shrink-0" />
+            <span>{toastMsg}</span>
+          </div>
+        )}
+
         {/* Painel Corporativo em Destaque quando logado como EMPRESA */}
         {isCompany && (
           <div className="rounded-3xl bg-gradient-to-r from-[#087E96]/25 via-[#111116] to-purple-900/20 border border-[#087E96]/50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -640,7 +753,7 @@ export default function VagasClient({
           />
         </div>
 
-        {/* Barra de Filtros do Topo com 5 Categorias Principais + Botão "Mais +" em Cinza e Setas Condicionais */}
+        {/* Barra de Filtros do Topo */}
         <div className="relative flex items-center justify-center gap-2">
           {canFilterLeft && (
             <button
@@ -706,7 +819,6 @@ export default function VagasClient({
                 );
               })}
 
-            {/* Botão "Mais +" com Fundo e Contorno em Tom Cinza */}
             <button
               type="button"
               onClick={() => setShowMoreCategories((prev) => !prev)}
@@ -885,20 +997,29 @@ export default function VagasClient({
                 {selectedOpportunity.title}
               </h3>
               <p className="text-xs font-bold text-white/90 mt-1">
-                {selectedOpportunity.companyName} •{" "}
-                {selectedOpportunity.location}
+                <Link
+                  href={`/perfil?user=${encodeURIComponent(
+                    selectedOpportunity.companyName
+                  )}`}
+                  onClick={() => setSelectedOpportunity(null)}
+                  className="underline hover:text-white"
+                >
+                  {selectedOpportunity.companyName}
+                </Link>{" "}
+                • {selectedOpportunity.location}
               </p>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 pt-4 space-y-5">
+              {/* Caixa Remuneração / Benefícios 100% Centralizada Verticalmente sem Espaço Vazio no Topo */}
               {selectedOpportunity.salaryInfo && (
-                <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs">
+                <div className="mt-3 py-3 px-4 flex items-center gap-3 bg-zinc-900/90 border border-zinc-800 rounded-2xl text-xs">
                   <Wallet className="w-4 h-4 text-[#087E96] shrink-0" />
-                  <div>
+                  <div className="leading-tight">
                     <span className="text-zinc-400 block text-[10px]">
                       Remuneração / Benefícios
                     </span>
-                    <span className="font-bold text-white">
+                    <span className="font-bold text-white block mt-0.5">
                       {selectedOpportunity.salaryInfo}
                     </span>
                   </div>
@@ -934,12 +1055,18 @@ export default function VagasClient({
                           className="p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between gap-2 text-xs"
                         >
                           <div>
-                            <p className="font-bold text-white">
+                            <Link
+                              href={`/perfil?user=${encodeURIComponent(
+                                item.candidate.username
+                              )}`}
+                              onClick={() => setSelectedOpportunity(null)}
+                              className="font-bold text-white hover:text-[#38bdf8] transition"
+                            >
                               {item.candidate.name}{" "}
                               <span className="text-zinc-400 font-normal">
                                 ({item.candidate.username})
                               </span>
-                            </p>
+                            </Link>
                             <p className="text-[11px] text-zinc-400">
                               {item.candidate.email} • {item.candidate.phone}
                             </p>
@@ -959,25 +1086,26 @@ export default function VagasClient({
               )}
 
               {/* Rodapé do Modal */}
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-end gap-3 flex-wrap">
                 {user.role === "USUARIO" && (
                   <button
                     type="button"
-                    disabled={
-                      selectedOpportunity.hasApplied ||
-                      applyingId === selectedOpportunity.id
-                    }
-                    onClick={() => handleOneClickApply(selectedOpportunity.id)}
+                    disabled={applyingId === selectedOpportunity.id}
+                    onClick={() => handleToggleApplication(selectedOpportunity)}
                     className={`flex-1 h-11 rounded-full text-xs font-extrabold flex items-center justify-center gap-2 transition ${
                       selectedOpportunity.hasApplied
-                        ? "bg-emerald-950 text-emerald-300 border border-emerald-500/50 cursor-default"
+                        ? "bg-emerald-950 hover:bg-red-950/80 text-emerald-300 hover:text-red-200 border border-emerald-500/50 hover:border-red-500/50"
                         : "bg-[#087E96] hover:bg-[#0a93af] text-white"
                     }`}
                   >
                     {selectedOpportunity.hasApplied ? (
                       <>
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        <span>Candidatura enviada ✓</span>
+                        <span>
+                          {applyingId === selectedOpportunity.id
+                            ? "Cancelando..."
+                            : "Candidatura enviada ✓ (Clique para cancelar)"}
+                        </span>
                       </>
                     ) : (
                       <>
@@ -989,6 +1117,19 @@ export default function VagasClient({
                         </span>
                       </>
                     )}
+                  </button>
+                )}
+
+                {isMyCompanyOpportunity(selectedOpportunity) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleDeleteOpportunity(selectedOpportunity)
+                    }
+                    className="px-5 h-11 rounded-full bg-red-950/60 hover:bg-red-900/70 border border-red-500/40 text-red-300 text-xs font-extrabold flex items-center gap-1.5 transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Excluir vaga</span>
                   </button>
                 )}
 
@@ -1005,7 +1146,7 @@ export default function VagasClient({
         </div>
       )}
 
-      {/* Modal de Publicar Nova Vaga (Exclusivo EMPRESA) com Validação Inline */}
+      {/* Modal de Publicar Nova Vaga (Exclusivo EMPRESA) com CustomSelect e Validação Inline */}
       {createModalOpen && isCompany && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4 py-6 overflow-y-auto">
           <div className="w-full max-w-lg rounded-3xl bg-[#111111] border border-zinc-800 p-6 sm:p-7 shadow-2xl space-y-5 my-auto">

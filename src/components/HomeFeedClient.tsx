@@ -23,15 +23,31 @@ import {
   Plus,
   CheckCircle2,
   Link2,
-  EyeOff,
   Flag,
   Trash2,
   User as UserIcon,
   Building2,
+  MousePointerClick,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 import RightSidebarWidgets from "@/components/RightSidebarWidgets";
 import { HestonLogo } from "@/components/HestonLogo";
+import {
+  getDeletedPostIdsMap,
+  markPostDeleted,
+  getEditedPostsMap,
+  getLikedPostsMap,
+  toggleLikePost,
+  getSavedPostsMap,
+  toggleSavePost,
+  getAllPostComments,
+  addPostComment,
+  deletePostComment,
+  getFlashcardEnrollmentsMap,
+  toggleFlashcardEnrollment,
+  normalizeHandle,
+  PostCommentRecord,
+} from "@/lib/persistence";
 
 export interface PostItem {
   id: string;
@@ -62,9 +78,7 @@ interface PollData {
   votedIndex?: number;
 }
 
-const DELETED_POSTS_STORAGE_KEY = "heston_deleted_posts";
-
-const FLASHCARD_THEMES = [
+export const FLASHCARD_THEMES = [
   {
     label: "Azul Oceano",
     value: "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]",
@@ -177,24 +191,56 @@ export default function HomeFeedClient({
   const [deletedPostIds, setDeletedPostIds] = useState<Record<string, boolean>>(
     {}
   );
+  const [editedPostsMap, setEditedPostsMap] = useState<
+    Record<
+      string,
+      { title: string | null; content: string; cardColor: string | null }
+    >
+  >({});
   const [feedFilter, setFeedFilter] = useState<"para-voce" | "perto">(
     "para-voce"
   );
 
-  // Carregar IDs excluídos do localStorage para nunca voltarem ao navegar entre abas
+  // Interações Persistentes dos Posts (Curtidas, Salvos, Comentários e Inscrições em Flashcards)
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, PostCommentRecord[]>
+  >({});
+  const [expandedCommentsPostIds, setExpandedCommentsPostIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
+    {}
+  );
+  const [fcEnrollments, setFcEnrollments] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const syncFromStorage = useCallback(() => {
+    setDeletedPostIds(getDeletedPostIdsMap());
+    setEditedPostsMap(getEditedPostsMap());
+
+    const lMap = getLikedPostsMap(user.id);
+    const likedBool: Record<string, boolean> = {};
+    for (const k of Object.keys(lMap)) likedBool[k] = true;
+    setLikedPosts(likedBool);
+
+    const sMap = getSavedPostsMap(user.id);
+    const savedBool: Record<string, boolean> = {};
+    for (const k of Object.keys(sMap)) savedBool[k] = true;
+    setSavedPosts(savedBool);
+
+    setCommentsByPost(getAllPostComments());
+    setFcEnrollments(getFlashcardEnrollmentsMap(user.id));
+  }, [user.id]);
+
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(DELETED_POSTS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          setDeletedPostIds(parsed);
-        }
-      }
-    } catch {
-      // ignore storage errors
-    }
-  }, []);
+    syncFromStorage();
+    const handler = () => syncFromStorage();
+    window.addEventListener("heston:state", handler);
+    return () => window.removeEventListener("heston:state", handler);
+  }, [syncFromStorage]);
 
   // Estado isolado da caixa de nova publicação + Enquete (Poll)
   const [postContent, setPostContent] = useState("");
@@ -230,10 +276,8 @@ export default function HomeFeedClient({
   // Estado das setas condicionais e fade dos Flashcards
   const [canScrollFcLeft, setCanScrollFcLeft] = useState(false);
   const [canScrollFcRight, setCanScrollFcRight] = useState(false);
+  const [activeFcIdx, setActiveFcIdx] = useState(0);
 
-  // Interações dos Posts
-  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
-  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
   const [copiedPostId, setCopiedPostId] = useState<string | null>(null);
   const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
   const [toastFeedback, setToastFeedback] = useState<string | null>(null);
@@ -241,11 +285,22 @@ export default function HomeFeedClient({
   const postInputRef = useRef<HTMLTextAreaElement>(null);
   const flashcardScrollRef = useRef<HTMLDivElement>(null);
 
-  const flashcards = posts.filter(
+  const hydratedPosts = posts.map((p) => {
+    const edited = editedPostsMap[p.id];
+    if (!edited) return p;
+    return {
+      ...p,
+      title: edited.title ?? p.title,
+      content: edited.content ?? p.content,
+      cardColor: edited.cardColor ?? p.cardColor,
+    };
+  });
+
+  const flashcards = hydratedPosts.filter(
     (p) => p.isFlashcard && !deletedPostIds[p.id]
   );
 
-  const feedPosts = posts.filter((p) => {
+  const feedPosts = hydratedPosts.filter((p) => {
     if (p.isFlashcard) return false;
     if (deletedPostIds[p.id]) return false;
 
@@ -258,9 +313,15 @@ export default function HomeFeedClient({
       return Boolean(isPvh);
     }
 
-    // Na aba "Para você", exibe os posts gerais e os criados pelo usuário
     return !p.isLocalOnlyRegion;
   });
+
+  function isPostOwnedByCurrentUser(post: PostItem): boolean {
+    return (
+      post.author.id === user.id ||
+      normalizeHandle(post.author.username) === normalizeHandle(user.username)
+    );
+  }
 
   const updateFlashcardScrollState = useCallback(() => {
     const el = flashcardScrollRef.current;
@@ -270,7 +331,9 @@ export default function HomeFeedClient({
     setCanScrollFcRight(
       hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 10
     );
-  }, []);
+    const approxIdx = Math.round(el.scrollLeft / 504);
+    setActiveFcIdx(Math.max(0, Math.min(flashcards.length - 1, approxIdx)));
+  }, [flashcards.length]);
 
   useEffect(() => {
     updateFlashcardScrollState();
@@ -281,23 +344,41 @@ export default function HomeFeedClient({
 
   function showToast(msg: string) {
     setToastFeedback(msg);
-    setTimeout(() => setToastFeedback(null), 3000);
+    setTimeout(() => setToastFeedback(null), 3200);
   }
 
+  /* Centralização 100% do Flashcard ao Rolar com as Setas (< e >) */
   function scrollFlashcards(direction: "left" | "right") {
     const el = flashcardScrollRef.current;
-    if (!el) return;
-    const step = 504; // 480px card + 24px gap
-    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
-    const rawTarget =
-      direction === "left" ? el.scrollLeft - step : el.scrollLeft + step;
-    let finalLeft = rawTarget;
-    if (rawTarget < 150) {
-      finalLeft = 0;
-    } else if (maxScroll - rawTarget < 150) {
-      finalLeft = maxScroll;
+    if (!el || flashcards.length === 0) return;
+
+    const nextIndex =
+      direction === "left"
+        ? Math.max(0, activeFcIdx - 1)
+        : Math.min(flashcards.length - 1, activeFcIdx + 1);
+
+    setActiveFcIdx(nextIndex);
+
+    const cardNode = el.querySelector<HTMLElement>(
+      `[data-fc-index="${nextIndex}"]`
+    );
+
+    if (cardNode) {
+      if (nextIndex === 0) {
+        el.scrollTo({ left: 0, behavior: "smooth" });
+      } else if (nextIndex === flashcards.length - 1) {
+        el.scrollTo({
+          left: Math.max(0, el.scrollWidth - el.clientWidth),
+          behavior: "smooth",
+        });
+      } else {
+        cardNode.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }
     }
-    el.scrollTo({ left: finalLeft, behavior: "smooth" });
   }
 
   function handlePollOptionChange(idx: number, val: string) {
@@ -339,31 +420,96 @@ export default function HomeFeedClient({
     setTimeout(() => setCopiedPostId(null), 2000);
   }
 
-  async function handleDeletePost(postId: string) {
-    setOpenMenuPostId(null);
+  function handleToggleLike(post: PostItem) {
+    const { liked } = toggleLikePost(user.id, {
+      postId: post.id,
+      content: post.content,
+      authorName: post.author.name,
+      authorUsername: post.author.username,
+      createdAt: post.createdAt,
+    });
+    setLikedPosts((prev) => ({ ...prev, [post.id]: liked }));
+  }
 
-    const updatedDeleted = { ...deletedPostIds, [postId]: true };
-    setDeletedPostIds(updatedDeleted);
-    setPosts((prev) => prev.filter((item) => item.id !== postId));
+  function handleToggleSave(post: PostItem) {
+    const { saved } = toggleSavePost(user.id, {
+      postId: post.id,
+      content: post.content,
+      authorName: post.author.name,
+      authorUsername: post.author.username,
+      createdAt: post.createdAt,
+    });
+    setSavedPosts((prev) => ({ ...prev, [post.id]: saved }));
+    showToast(saved ? "Publicação salva!" : "Removido dos salvos");
+  }
 
-    try {
-      window.localStorage.setItem(
-        DELETED_POSTS_STORAGE_KEY,
-        JSON.stringify(updatedDeleted)
-      );
-    } catch {
-      // ignore storage errors
+  function handleSubmitComment(e: React.FormEvent, post: PostItem) {
+    e.preventDefault();
+    const draft = (commentDrafts[post.id] || "").trim();
+    if (!draft) return;
+
+    addPostComment({
+      postId: post.id,
+      postSnippet: post.content.slice(0, 70),
+      postAuthorName: post.author.name,
+      authorId: user.id,
+      authorName: user.name,
+      authorUsername: user.username,
+      text: draft,
+    });
+
+    setCommentDrafts((prev) => ({ ...prev, [post.id]: "" }));
+    setCommentsByPost(getAllPostComments());
+    showToast("Comentário publicado!");
+  }
+
+  function handleDeleteComment(postId: string, commentId: string) {
+    deletePostComment(postId, commentId);
+    setCommentsByPost(getAllPostComments());
+    showToast("Seu comentário foi excluído");
+  }
+
+  async function handleDeletePostOrFlashcard(
+    item: PostItem,
+    isFlashcardItem = false
+  ) {
+    if (!isPostOwnedByCurrentUser(item)) {
+      showToast("Você só pode excluir suas próprias publicações.");
+      return;
     }
 
+    setOpenMenuPostId(null);
+    if (activeFlashcard?.id === item.id) {
+      setActiveFlashcard(null);
+    }
+
+    const updatedDeleted = markPostDeleted(item.id);
+    setDeletedPostIds(updatedDeleted);
+    setPosts((prev) => prev.filter((p) => p.id !== item.id));
+
     try {
-      await fetch(`/api/posts/${postId}`, {
+      await fetch(`/api/posts/${item.id}`, {
         method: "DELETE",
       });
     } catch {
-      // already persisted in localStorage
+      // persisted in localStorage
     }
 
-    showToast("Sua publicação foi excluída com sucesso");
+    showToast(
+      isFlashcardItem
+        ? "Seu flashcard foi excluído com sucesso"
+        : "Sua publicação foi excluída com sucesso"
+    );
+  }
+
+  function handleToggleFlashcardEnroll(flashcardId: string) {
+    const { enrolled, map } = toggleFlashcardEnrollment(user.id, flashcardId);
+    setFcEnrollments(map);
+    showToast(
+      enrolled
+        ? "Inscrição confirmada em 1 clique!"
+        : "Sua inscrição no flashcard foi cancelada"
+    );
   }
 
   async function handleCreatePost(e: React.FormEvent) {
@@ -471,14 +617,20 @@ export default function HomeFeedClient({
   return (
     <AppShell
       user={user}
-      rightSidebar={<RightSidebarWidgets role={user.role} />}
+      rightSidebar={
+        <RightSidebarWidgets
+          role={user.role}
+          userId={user.id}
+          currentUsername={user.username}
+        />
+      }
       onQuickPostClick={() => postInputRef.current?.focus()}
     >
       <div className="w-full pb-32 relative">
-        {/* Toast Flutuante Moderno */}
+        {/* Toast Centralizado no Topo da Tela */}
         {toastFeedback && (
-          <div className="fixed top-6 right-6 z-50 rounded-full bg-zinc-900/95 border border-[#087E96] px-5 py-2.5 text-xs font-bold text-white shadow-2xl flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#087E96]" />
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-3.5 rounded-full bg-zinc-900/95 border border-[#087E96] text-xs font-extrabold text-white shadow-2xl flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-[#087E96] shrink-0" />
             <span>{toastFeedback}</span>
           </div>
         )}
@@ -609,9 +761,9 @@ export default function HomeFeedClient({
           </form>
         </section>
 
-        {/* Seção de Flashcards com Efeito Fade em Degradê nas Extremidades e Setas Condicionais */}
+        {/* Seção de Flashcards com Centralização snap-x snap-mandatory, Exclusão pelo Autor e mask-image */}
         <section className="px-4 sm:px-6 py-7 border-b border-zinc-900">
-          <div className="flex items-center justify-between gap-4 mb-5">
+          <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2 text-xs font-extrabold tracking-wider uppercase text-white">
                 <Zap className="w-4 h-4 fill-white text-white" />
@@ -636,6 +788,13 @@ export default function HomeFeedClient({
                 </span>
               </button>
             </div>
+
+            <Link
+              href="/perfil?tab=flashcards"
+              className="text-[11px] font-bold text-[#087E96] hover:text-cyan-300 transition"
+            >
+              Gerenciar meus flashcards →
+            </Link>
           </div>
 
           <div className="relative flex items-center">
@@ -653,7 +812,7 @@ export default function HomeFeedClient({
             <div
               ref={flashcardScrollRef}
               onScroll={updateFlashcardScrollState}
-              className={`flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-12 ${
+              className={`flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pr-12 ${
                 canScrollFcLeft && canScrollFcRight
                   ? "[mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_85%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_12%,black_85%,transparent_100%)]"
                   : canScrollFcRight
@@ -670,17 +829,20 @@ export default function HomeFeedClient({
                   (isSecond
                     ? "from-[#F59E0B] via-[#D97706] to-[#EA580C]"
                     : "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]");
-                const displayUsername =
-                  idx === 0
-                    ? "thomasbraga"
-                    : idx === 1
-                    ? "rebecafrancine"
-                    : fc.author.username.replace(/^@/, "");
+                const isOwnFc = isPostOwnedByCurrentUser(fc);
+                const displayUsername = isOwnFc
+                  ? user.username.replace(/^@/, "")
+                  : idx === 0
+                  ? "thomasbraga"
+                  : idx === 1
+                  ? "rebecafrancine"
+                  : fc.author.username.replace(/^@/, "");
 
                 return (
                   <div
                     key={fc.id}
-                    className={`w-[480px] h-[240px] shrink-0 rounded-[32px] bg-gradient-to-br ${gradient} p-7 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden group`}
+                    data-fc-index={idx}
+                    className={`snap-center w-[480px] h-[240px] shrink-0 rounded-[32px] bg-gradient-to-br ${gradient} p-7 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden group`}
                   >
                     {/* Formas Geométricas Abstratas Modernas + Marca d'água da Logo no Fundo Direito */}
                     <div className="pointer-events-none absolute -right-12 -top-12 w-56 h-56 rounded-full bg-white/15 blur-2xl" />
@@ -689,7 +851,7 @@ export default function HomeFeedClient({
                       <HestonLogo size={115} />
                     </div>
 
-                    {/* Topo: Avatar Universal + Username Clicável + Badge */}
+                    {/* Topo: Avatar Universal + Username Clicável + Badge + Lixeira (se for do Autor) */}
                     <div className="relative z-10 flex items-center justify-between">
                       <Link
                         href={`/perfil?user=${encodeURIComponent(
@@ -705,9 +867,23 @@ export default function HomeFeedClient({
                         </span>
                       </Link>
 
-                      <span className="px-3 py-1 rounded-full bg-black/25 backdrop-blur-sm border border-white/15 text-[10px] font-extrabold uppercase tracking-wider">
-                        {fc.author.role}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 rounded-full bg-black/25 backdrop-blur-sm border border-white/15 text-[10px] font-extrabold uppercase tracking-wider">
+                          {fc.author.role}
+                        </span>
+                        {isOwnFc && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeletePostOrFlashcard(fc, true)
+                            }
+                            title="Excluir meu flashcard"
+                            className="p-1.5 rounded-full bg-black/35 hover:bg-red-600/80 border border-white/20 text-white transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Centro: Título Marcante + Subtítulo Conciso */}
@@ -722,13 +898,20 @@ export default function HomeFeedClient({
 
                     {/* Base: Botão SAIBA MAIS */}
                     <div className="relative z-10 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setActiveFlashcard(fc)}
-                        className="px-5 py-2 rounded-full bg-white hover:bg-zinc-100 text-black font-black text-[10px] uppercase tracking-wider transition shadow-lg"
-                      >
-                        SAIBA MAIS
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveFlashcard(fc)}
+                          className="px-5 py-2 rounded-full bg-white hover:bg-zinc-100 text-black font-black text-[10px] uppercase tracking-wider transition shadow-lg"
+                        >
+                          SAIBA MAIS
+                        </button>
+                        {fcEnrollments[fc.id] && (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-950/90 border border-emerald-400/60 text-emerald-300 text-[9px] font-extrabold">
+                            Inscrito ✓
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[11px] text-white/80 font-semibold">
                         {formatRelativeTime(fc.createdAt)}
                       </span>
@@ -768,13 +951,16 @@ export default function HomeFeedClient({
           </div>
         )}
 
-        {/* Lista de Publicações do Feed (Sem título em negrito acima do comentário e sem repetir título no placeholder) */}
+        {/* Lista de Publicações do Feed */}
         <section className="px-4 sm:px-6 py-6 space-y-6">
           {feedPosts.map((post, idx) => {
             const isLiked = Boolean(likedPosts[post.id]);
             const isSaved = Boolean(savedPosts[post.id]);
             const isCopied = copiedPostId === post.id;
             const isMenuOpen = openMenuPostId === post.id;
+            const isOwnPost = isPostOwnedByCurrentUser(post);
+            const postComments = commentsByPost[post.id] || [];
+            const isCommentsOpen = Boolean(expandedCommentsPostIds[post.id]);
             const poll =
               pollsByPostId[post.id] ||
               (idx === 1 ? pollsByPostId.default_poll : undefined);
@@ -785,7 +971,7 @@ export default function HomeFeedClient({
                 key={post.id}
                 className="rounded-3xl bg-[#0D0D10] border border-zinc-800/90 p-5 sm:p-6 space-y-3.5 transition hover:border-zinc-700/80"
               >
-                {/* Cabeçalho do Post + Menu Dropdown Funcional `...` */}
+                {/* Cabeçalho do Post + Menu Dropdown Funcional `...` (Com Permissão Estrita de Autor) */}
                 <div className="flex items-center justify-between gap-3 relative">
                   <div className="flex items-center gap-3 min-w-0">
                     <Link
@@ -848,7 +1034,7 @@ export default function HomeFeedClient({
                     </div>
                   </div>
 
-                  {/* Botão `...` com Dropdown Escuro Funcional */}
+                  {/* Botão `...` com Dropdown Escuro Funcional (Sem "Não tenho interesse" e "Excluir" SOMENTE para o Autor) */}
                   <div className="relative">
                     <button
                       type="button"
@@ -868,16 +1054,8 @@ export default function HomeFeedClient({
                         <button
                           type="button"
                           onClick={() => {
-                            setSavedPosts((prev) => ({
-                              ...prev,
-                              [post.id]: !prev[post.id],
-                            }));
+                            handleToggleSave(post);
                             setOpenMenuPostId(null);
-                            showToast(
-                              isSaved
-                                ? "Removido dos salvos"
-                                : "Publicação salva!"
-                            );
                           }}
                           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-zinc-200 hover:bg-zinc-800 transition text-left"
                         >
@@ -905,18 +1083,6 @@ export default function HomeFeedClient({
                           type="button"
                           onClick={() => {
                             setOpenMenuPostId(null);
-                            handleDeletePost(post.id);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-zinc-200 hover:bg-zinc-800 transition text-left"
-                        >
-                          <EyeOff className="w-3.5 h-3.5 text-zinc-400" />
-                          <span>Não tenho interesse</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuPostId(null);
                             showToast(
                               "Denúncia registrada para análise da moderação."
                             );
@@ -927,25 +1093,29 @@ export default function HomeFeedClient({
                           <span>Denunciar publicação</span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePost(post.id)}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-950/30 transition text-left"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Excluir publicação</span>
-                        </button>
+                        {isOwnPost && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeletePostOrFlashcard(post, false)
+                            }
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-950/30 transition text-left"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Excluir publicação</span>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Comentário normal da publicação ACIMA do Placeholder de Mídia (sem título em negrito) */}
+                {/* Comentário normal da publicação ACIMA do Placeholder de Mídia */}
                 <p className="text-[15px] text-zinc-100 leading-relaxed whitespace-pre-line">
                   {post.content}
                 </p>
 
-                {/* Placeholder de Mídia Moderno (Sem repetir título dentro) */}
+                {/* Placeholder de Mídia Moderno */}
                 <PostMediaSkeleton />
 
                 {/* Enquete Interativa (quando houver enquete no post) */}
@@ -998,17 +1168,12 @@ export default function HomeFeedClient({
                   </div>
                 )}
 
-                {/* Barra de Ações do Post: Curtir, Comentar, Compartilhar e Salvar/Favoritar à direita */}
+                {/* Barra de Ações do Post: Curtir, Comentar (Expansível), Compartilhar e Salvar */}
                 <div className="pt-2 border-t border-zinc-800/70 flex items-center justify-between text-xs text-zinc-400">
                   <div className="flex items-center gap-6">
                     <button
                       type="button"
-                      onClick={() =>
-                        setLikedPosts((prev) => ({
-                          ...prev,
-                          [post.id]: !prev[post.id],
-                        }))
-                      }
+                      onClick={() => handleToggleLike(post)}
                       className={`flex items-center gap-1.5 font-bold transition ${
                         isLiked
                           ? "text-pink-500"
@@ -1018,16 +1183,32 @@ export default function HomeFeedClient({
                       <Heart
                         className={`w-4 h-4 ${isLiked ? "fill-pink-500" : ""}`}
                       />
-                      <span>{isLiked ? "Curtido" : "Curtir"}</span>
+                      <span>
+                        {isLiked ? "Curtido (1)" : "Curtir"}
+                      </span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => postInputRef.current?.focus()}
-                      className="flex items-center gap-1.5 font-bold hover:text-cyan-400 transition"
+                      onClick={() =>
+                        setExpandedCommentsPostIds((prev) => ({
+                          ...prev,
+                          [post.id]: !prev[post.id],
+                        }))
+                      }
+                      className={`flex items-center gap-1.5 font-bold transition ${
+                        isCommentsOpen || postComments.length > 0
+                          ? "text-cyan-400"
+                          : "hover:text-cyan-400"
+                      }`}
                     >
                       <MessageCircle className="w-4 h-4" />
-                      <span>Comentar</span>
+                      <span>
+                        Comentar
+                        {postComments.length > 0
+                          ? ` (${postComments.length})`
+                          : ""}
+                      </span>
                     </button>
 
                     <button
@@ -1048,15 +1229,7 @@ export default function HomeFeedClient({
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setSavedPosts((prev) => ({
-                        ...prev,
-                        [post.id]: !prev[post.id],
-                      }));
-                      showToast(
-                        isSaved ? "Removido dos salvos" : "Publicação salva!"
-                      );
-                    }}
+                    onClick={() => handleToggleSave(post)}
                     title={isSaved ? "Salvo" : "Salvar publicação"}
                     className={`flex items-center gap-1.5 font-bold transition ${
                       isSaved
@@ -1072,6 +1245,88 @@ export default function HomeFeedClient({
                     <span>{isSaved ? "Salvo" : "Salvar"}</span>
                   </button>
                 </div>
+
+                {/* Área Expansível de Comentários em Tempo Real */}
+                {isCommentsOpen && (
+                  <div className="pt-3 border-t border-zinc-800/80 space-y-3">
+                    {postComments.length > 0 ? (
+                      <div className="space-y-2 max-h-52 overflow-y-auto no-scrollbar">
+                        {postComments.map((cmt) => {
+                          const isMyComment = cmt.authorId === user.id;
+                          return (
+                            <div
+                              key={cmt.id}
+                              className="p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-start justify-between gap-2 text-xs"
+                            >
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <Link
+                                    href={`/perfil?user=${encodeURIComponent(
+                                      cmt.authorUsername
+                                    )}`}
+                                    className="font-extrabold text-white hover:text-[#38bdf8]"
+                                  >
+                                    {cmt.authorName}
+                                  </Link>
+                                  <span className="text-[11px] text-zinc-400">
+                                    {cmt.authorUsername}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-500">
+                                    • {formatRelativeTime(cmt.createdAt)}
+                                  </span>
+                                </div>
+                                <p className="text-zinc-200 leading-relaxed">
+                                  {cmt.text}
+                                </p>
+                              </div>
+                              {isMyComment && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDeleteComment(post.id, cmt.id)
+                                  }
+                                  title="Excluir comentário"
+                                  className="p-1 rounded-full text-zinc-400 hover:text-red-400 transition shrink-0"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-zinc-500">
+                        Seja o primeiro a comentar nesta publicação.
+                      </p>
+                    )}
+
+                    <form
+                      onSubmit={(e) => handleSubmitComment(e, post)}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={commentDrafts[post.id] || ""}
+                        onChange={(e) =>
+                          setCommentDrafts((prev) => ({
+                            ...prev,
+                            [post.id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Escreva um comentário..."
+                        className="flex-1 h-10 rounded-full bg-black border border-zinc-700 focus:border-[#087E96] px-4 text-xs text-white placeholder-zinc-500 outline-none transition"
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 h-10 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-white font-extrabold text-xs flex items-center gap-1.5 transition shrink-0"
+                      >
+                        <span>Enviar</span>
+                        <SendHorizontal className="w-3.5 h-3.5" />
+                      </button>
+                    </form>
+                  </div>
+                )}
               </article>
             );
           })}
@@ -1104,7 +1359,7 @@ export default function HomeFeedClient({
         </div>
       </div>
 
-      {/* Modal Interativo de Leitura do Flashcard ("SAIBA MAIS") */}
+      {/* Modal Interativo de Leitura do Flashcard ("SAIBA MAIS") com Inscrição em 1 Clique e Exclusão */}
       {activeFlashcard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
           <div className="w-full max-w-md rounded-3xl bg-[#111111] border border-zinc-800 overflow-hidden shadow-2xl">
@@ -1133,38 +1388,92 @@ export default function HomeFeedClient({
 
             <div className="p-6 space-y-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-white">
+                <Link
+                  href={`/perfil?user=${encodeURIComponent(
+                    activeFlashcard.author.username
+                  )}`}
+                  onClick={() => setActiveFlashcard(null)}
+                  className="group"
+                >
+                  <p className="text-sm font-bold text-white group-hover:text-[#38bdf8] transition">
                     {activeFlashcard.author.name}
                   </p>
                   <p className="text-xs text-zinc-400">
                     {activeFlashcard.author.username} •{" "}
                     {formatRelativeTime(activeFlashcard.createdAt)}
                   </p>
+                </Link>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-full bg-[#087E96]/20 border border-[#087E96] text-cyan-300 text-[10px] font-extrabold">
+                    {activeFlashcard.author.role}
+                  </span>
+                  {isPostOwnedByCurrentUser(activeFlashcard) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDeletePostOrFlashcard(activeFlashcard, true)
+                      }
+                      title="Excluir flashcard"
+                      className="p-2 rounded-full bg-red-950/60 hover:bg-red-900/70 border border-red-500/40 text-red-300 transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-[#087E96]/20 border border-[#087E96] text-cyan-300 text-[10px] font-extrabold">
-                  {activeFlashcard.author.role}
-                </span>
               </div>
 
               <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-line">
                 {activeFlashcard.content}
               </p>
 
-              <div className="flex items-center gap-3 pt-2">
-                <Link
-                  href="/vagas"
-                  className="flex-1 h-10 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-white font-bold text-xs flex items-center justify-center transition"
-                >
-                  Explorar Catálogo de Vagas
-                </Link>
+              {/* Ação Contextual de Inscrição / Participação em 1 Clique */}
+              <div className="space-y-2.5 pt-2">
                 <button
                   type="button"
-                  onClick={() => setActiveFlashcard(null)}
-                  className="px-5 h-10 rounded-full border border-zinc-700 hover:border-white text-xs font-bold transition"
+                  onClick={() =>
+                    handleToggleFlashcardEnroll(activeFlashcard.id)
+                  }
+                  className={`w-full h-11 rounded-full text-xs font-extrabold flex items-center justify-center gap-2 transition shadow-lg ${
+                    fcEnrollments[activeFlashcard.id]
+                      ? "bg-emerald-950 text-emerald-300 border border-emerald-500/50 hover:bg-red-950/60 hover:text-red-200 hover:border-red-500/40"
+                      : "bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 hover:opacity-95 text-white"
+                  }`}
                 >
-                  Fechar
+                  {fcEnrollments[activeFlashcard.id] ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>
+                        Inscrição Confirmada ✓ (Clique para cancelar)
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <MousePointerClick className="w-4 h-4" />
+                      <span>
+                        Inscrever-se / Confirmar Participação em 1 Clique
+                      </span>
+                    </>
+                  )}
                 </button>
+
+                <div className="flex items-center gap-2.5">
+                  <Link
+                    href={`/vagas?highlight=${encodeURIComponent(
+                      activeFlashcard.title || ""
+                    )}`}
+                    onClick={() => setActiveFlashcard(null)}
+                    className="flex-1 h-10 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-bold text-xs flex items-center justify-center transition"
+                  >
+                    Ver Oportunidade no Catálogo
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFlashcard(null)}
+                    className="px-5 h-10 rounded-full border border-zinc-700 hover:border-white text-xs font-bold transition"
+                  >
+                    Fechar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
