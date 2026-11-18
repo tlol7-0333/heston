@@ -5,7 +5,6 @@ import {
   Search,
   Plus,
   Building2,
-  MapPin,
   Wallet,
   Users,
   CheckCircle2,
@@ -55,14 +54,13 @@ interface VagasClientProps {
 const FILTER_PILLS = [
   "Todas",
   "Emprego",
-  "Cursos",
-  "Intercâmbios",
-  "Eventos",
   "Estágio",
   "Júnior",
   "Jovem Aprendiz",
+  "Cursos",
+  "Intercâmbios",
+  "Eventos",
   "Remoto",
-  "Presencial",
 ];
 
 const CATEGORY_OPTIONS = [
@@ -141,7 +139,7 @@ function OpportunityCarouselRow({
   function scrollRow(dir: "left" | "right") {
     const el = rowRef.current;
     if (!el) return;
-    const offset = dir === "left" ? -480 : 480;
+    const offset = dir === "left" ? -444 : 444;
     el.scrollBy({ left: offset, behavior: "smooth" });
   }
 
@@ -151,9 +149,6 @@ function OpportunityCarouselRow({
     <section className="space-y-3.5">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-extrabold tracking-tight">{title}</h2>
-        <span className="text-[11px] text-zinc-500 font-semibold">
-          {items.length} oportunidades
-        </span>
       </div>
 
       <div className="relative flex items-center">
@@ -162,7 +157,7 @@ function OpportunityCarouselRow({
             type="button"
             onClick={() => scrollRow("left")}
             aria-label={`Voltar em ${title}`}
-            className="flex absolute left-2 z-20 w-9 h-9 rounded-full bg-zinc-900/95 hover:bg-zinc-800 border border-zinc-600 items-center justify-center text-white shadow-2xl transition"
+            className="flex absolute left-2 z-20 w-8 h-8 rounded-full bg-zinc-700/90 hover:bg-zinc-600 items-center justify-center text-white shadow-2xl transition"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -171,7 +166,7 @@ function OpportunityCarouselRow({
         <div
           ref={rowRef}
           onScroll={updateScrollButtons}
-          className="flex items-stretch gap-5 overflow-x-auto no-scrollbar scroll-smooth pr-12"
+          className="flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-12"
         >
           {items.map((opp) => renderCard(opp))}
         </div>
@@ -181,7 +176,7 @@ function OpportunityCarouselRow({
             type="button"
             onClick={() => scrollRow("right")}
             aria-label={`Avançar em ${title}`}
-            className="flex absolute right-2 z-20 w-9 h-9 rounded-full bg-zinc-900/95 hover:bg-zinc-800 border border-zinc-600 items-center justify-center text-white shadow-2xl transition"
+            className="flex absolute right-2 z-20 w-8 h-8 rounded-full bg-zinc-700/90 hover:bg-zinc-600 items-center justify-center text-white shadow-2xl transition"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -239,12 +234,6 @@ export default function VagasClient({
       return (
         opp.location.toLowerCase().includes("remoto") ||
         opp.location.toLowerCase().includes("online")
-      );
-    }
-    if (activeFilter === "Presencial") {
-      return (
-        opp.location.toLowerCase().includes("presencial") ||
-        opp.location.toLowerCase().includes("híbrido")
       );
     }
 
@@ -366,61 +355,51 @@ export default function VagasClient({
     }
   }
 
+  /* Card Padronizado na Proporção Exata 2:1 (w-[420px] h-[210px] rounded-[32px]) */
   function renderOpportunityBannerCard(opp: OpportunityItem) {
     const isApplying = applyingId === opp.id;
 
     return (
       <div
         key={opp.id}
-        className={`min-w-[420px] md:min-w-[465px] h-[205px] shrink-0 rounded-[28px] bg-gradient-to-r ${opp.cardGradient} p-6 text-white shadow-xl flex items-center gap-5 relative overflow-hidden transition hover:scale-[1.01]`}
+        className={`w-[420px] h-[210px] shrink-0 rounded-[32px] bg-gradient-to-r ${opp.cardGradient} p-6 text-white shadow-xl flex items-center gap-5 relative overflow-hidden transition hover:scale-[1.01]`}
       >
-        {/* Círculo decorativo sutil de fundo */}
-        <div className="pointer-events-none absolute -right-10 -bottom-10 w-40 h-40 rounded-full bg-white/10 blur-sm" />
-
-        {/* Emblema Esquerdo (Estilo Banner do Protótipo) */}
-        <div className="w-16 h-16 rounded-2xl bg-black/25 backdrop-blur-sm border border-white/30 flex items-center justify-center shrink-0 shadow-inner">
-          <Building2 className="w-8 h-8 text-white" />
+        {/* Emblema Esquerdo Grande (Fiel à Imagem de Vagas) */}
+        <div className="w-16 h-16 rounded-2xl bg-black/20 backdrop-blur-sm border border-white/25 flex items-center justify-center shrink-0">
+          <Building2 className="w-9 h-9 text-white/90" />
         </div>
 
-        {/* Conteúdo Direito do Banner */}
+        {/* Conteúdo Direito do Card 2:1 */}
         <div className="flex-1 min-w-0 h-full flex flex-col justify-between relative z-10">
-          {/* Topo: Categoria, Localização e Contagem */}
+          {/* Topo: Categoria e Candidatos */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="px-2.5 py-0.5 rounded-full bg-black/35 backdrop-blur-sm text-[10px] font-extrabold uppercase tracking-wider shrink-0">
-                {opp.category}
-              </span>
-              <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/25 text-[10px] font-bold truncate">
-                <MapPin className="w-3 h-3 shrink-0" />
-                <span className="truncate">{opp.location}</span>
-              </span>
-            </div>
-
-            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/30 text-[10px] font-extrabold shrink-0">
+            <span className="px-2.5 py-0.5 rounded-full bg-black/30 text-[10px] font-extrabold uppercase tracking-wider truncate">
+              {opp.category} • {opp.location}
+            </span>
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 text-[10px] font-extrabold shrink-0">
               <Users className="w-3 h-3" />
               <span>{opp.applicationsCount}</span>
             </span>
           </div>
 
-          {/* Centro: Título em Destaque + Empresa + Salário/Bolsa em 1 linha */}
-          <div className="space-y-1">
-            <h3 className="text-lg md:text-xl font-black leading-tight tracking-tight drop-shadow-sm line-clamp-2">
+          {/* Centro: Título em Destaque + Empresa */}
+          <div className="my-auto">
+            <h3 className="text-lg font-extrabold leading-snug tracking-tight drop-shadow-sm line-clamp-2">
               {opp.title} - {opp.companyName}
             </h3>
-            <p className="text-xs font-bold text-white/90 truncate flex items-center gap-1.5">
-              <Wallet className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">
-                {opp.salaryInfo || opp.description}
-              </span>
-            </p>
+            {opp.salaryInfo && (
+              <p className="text-[11px] font-semibold text-white/90 truncate mt-0.5">
+                {opp.salaryInfo}
+              </p>
+            )}
           </div>
 
-          {/* Rodapé: Botão SAIBA MAIS + Candidatura em 1 Clique */}
-          <div className="flex items-center gap-2.5 pt-1">
+          {/* Base: Botões SAIBA MAIS + Candidatura em 1 Clique */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setSelectedOpportunity(opp)}
-              className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-extrabold text-[10px] uppercase tracking-wider transition shadow-md shrink-0"
+              className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-black text-[9px] uppercase tracking-wider transition shadow shrink-0"
             >
               SAIBA MAIS
             </button>
@@ -430,7 +409,7 @@ export default function VagasClient({
                 type="button"
                 disabled={opp.hasApplied || isApplying}
                 onClick={() => handleOneClickApply(opp.id)}
-                className={`px-3.5 py-1.5 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 transition shadow-md shrink-0 ${
+                className={`px-3 py-1.5 rounded-full text-[9px] font-extrabold flex items-center gap-1 transition shadow shrink-0 ${
                   opp.hasApplied
                     ? "bg-emerald-950/90 text-emerald-300 border border-emerald-400/60 cursor-default"
                     : "bg-black/80 hover:bg-black text-white border border-white/30"
@@ -438,12 +417,12 @@ export default function VagasClient({
               >
                 {opp.hasApplied ? (
                   <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                     <span>Candidatura enviada ✓</span>
                   </>
                 ) : (
                   <>
-                    <MousePointerClick className="w-3.5 h-3.5" />
+                    <MousePointerClick className="w-3 h-3" />
                     <span>
                       {isApplying
                         ? "Enviando..."
@@ -461,7 +440,6 @@ export default function VagasClient({
 
   const isFiltering = searchTerm.trim() !== "" || activeFilter !== "Todas";
 
-  // Divide as oportunidades em 3 fileiras horizontais ricas (5 a 6 cards cada)
   const chunkSize = Math.max(
     5,
     Math.ceil(filteredOpportunities.length / 3)
@@ -478,7 +456,7 @@ export default function VagasClient({
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8 pb-24">
         {/* Topo: Barra de Pesquisa + Botão Publicar Nova Vaga (EMPRESA) */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:max-w-xl mx-auto md:mx-0">
+          <div className="relative w-full md:max-w-xl mx-auto">
             <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -505,8 +483,8 @@ export default function VagasClient({
           )}
         </div>
 
-        {/* Pílulas de Filtro Rápido com Borda em Degradê Azul-Ciano para Rosa/Roxo (sem Scrollbar) */}
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+        {/* Pílulas de Filtro Rápido (Apenas a ativa em degradê azul-rosa, inativas com borda fina padrão) */}
+        <div className="flex items-center justify-center gap-2.5 overflow-x-auto no-scrollbar py-1">
           {FILTER_PILLS.map((pill) => {
             const active = activeFilter === pill;
             return (
@@ -514,23 +492,19 @@ export default function VagasClient({
                 key={pill}
                 type="button"
                 onClick={() => setActiveFilter(pill)}
-                className="p-[1.5px] rounded-full bg-gradient-to-r from-[#00B4D8] via-[#7209B7] to-[#F72585] shrink-0 transition hover:scale-[1.03]"
+                className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition shrink-0 ${
+                  active
+                    ? "bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 text-white shadow"
+                    : "bg-black border border-pink-500/40 hover:border-pink-500 text-zinc-200"
+                }`}
               >
-                <span
-                  className={`block px-5 py-1.5 rounded-full text-xs font-extrabold transition ${
-                    active
-                      ? "bg-transparent text-white"
-                      : "bg-black hover:bg-zinc-950 text-white"
-                  }`}
-                >
-                  {pill}
-                </span>
+                {pill}
               </button>
             );
           })}
         </div>
 
-        {/* Listagem de Vagas em Carrosséis Horizontais (ou Resultado Filtrado) */}
+        {/* Listagem de Vagas em Carrosséis Horizontais */}
         {filteredOpportunities.length === 0 ? (
           <div className="rounded-3xl bg-[#111111] border border-zinc-800 p-12 text-center space-y-3">
             <Briefcase className="w-8 h-8 text-[#087E96] mx-auto" />
@@ -778,7 +752,6 @@ export default function VagasClient({
               onSubmit={handleCreateOpportunity}
               className="space-y-4"
             >
-              {/* Título da Vaga */}
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Título da Vaga / Oportunidade
@@ -807,7 +780,6 @@ export default function VagasClient({
                 )}
               </div>
 
-              {/* Empresa e Categoria */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-zinc-300 mb-1.5">
@@ -858,7 +830,6 @@ export default function VagasClient({
                 </div>
               </div>
 
-              {/* Localização e Faixa Salarial / Bolsa */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-zinc-300 mb-1.5">
@@ -905,7 +876,6 @@ export default function VagasClient({
                 </div>
               </div>
 
-              {/* Descrição */}
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                   Descrição e Requisitos
@@ -937,7 +907,6 @@ export default function VagasClient({
                 )}
               </div>
 
-              {/* Gradiente do Card */}
               <div>
                 <label className="block text-xs font-bold text-zinc-300 mb-2">
                   Estilo Visual do Card

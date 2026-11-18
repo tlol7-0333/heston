@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
-  MessageSquare,
+  Users,
   Search,
   Briefcase,
   Bell,
@@ -97,9 +97,9 @@ export default function AppShell({
       active: pathname === "/home",
     },
     {
-      label: "Mensagens",
+      label: "Notas",
       href: "/notas",
-      icon: MessageSquare,
+      icon: Users,
       active: pathname === "/notas",
     },
     {
@@ -205,7 +205,7 @@ export default function AppShell({
             </span>
           </Link>
 
-          {/* Links de Navegação */}
+          {/* Links de Navegação na Ordem do Protótipo */}
           <nav className="space-y-2">
             {navItems.slice(0, 4).map((item) => {
               const Icon = item.icon;
@@ -215,13 +215,13 @@ export default function AppShell({
                   href={item.href}
                   className={`flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
                     item.active
-                      ? "text-white font-extrabold bg-zinc-900/80"
+                      ? "text-white font-extrabold"
                       : "text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium"
                   }`}
                 >
                   <Icon
                     className={`w-5 h-5 ${
-                      item.active ? "text-[#087E96]" : "text-zinc-300"
+                      item.active ? "text-white stroke-[2.4]" : "text-zinc-300"
                     }`}
                   />
                   <span>{item.label}</span>
@@ -247,11 +247,11 @@ export default function AppShell({
               href="/perfil"
               className={`flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
                 pathname === "/perfil"
-                  ? "text-white font-extrabold bg-zinc-900/80"
+                  ? "text-white font-extrabold"
                   : "text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium"
               }`}
             >
-              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-500 to-pink-500 flex items-center justify-center text-[10px] font-extrabold text-black">
+              <div className="w-6 h-6 rounded-full bg-[#E8C58E] flex items-center justify-center text-[10px] font-extrabold text-amber-950 border border-amber-300/60">
                 {initials || "H"}
               </div>
               <span>Perfil</span>
@@ -367,7 +367,7 @@ export default function AppShell({
       {/* Coluna Central */}
       <main className="flex-1 min-w-0">{children}</main>
 
-      {/* Sidebar Direita (Opcional, exibida na Home) */}
+      {/* Sidebar Direita (Exibida em Home, Explorar e Perfil) */}
       {rightSidebar && (
         <aside className="hidden xl:block w-80 shrink-0 border-l border-zinc-800/90 px-6 py-7 space-y-6">
           {rightSidebar}
