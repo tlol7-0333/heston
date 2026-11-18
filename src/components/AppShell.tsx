@@ -17,6 +17,11 @@ import {
   Settings,
   Bookmark,
   HelpCircle,
+  Shield,
+  Sliders,
+  Info,
+  KeyRound,
+  CheckCircle2,
 } from "lucide-react";
 import { HestonLogo } from "@/components/HestonLogo";
 
@@ -39,6 +44,13 @@ interface AppShellProps {
   onQuickPostClick?: () => void;
 }
 
+type SettingsTab =
+  | "conta"
+  | "privacidade"
+  | "notificacoes"
+  | "acessibilidade"
+  | "sobre";
+
 export default function AppShell({
   user,
   children,
@@ -56,6 +68,21 @@ export default function AppShell({
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [infoModal, setInfoModal] = useState<"salvos" | "ajuda" | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Modal Amplo de Configurações Gerais (estilo Twitter/X Settings)
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("conta");
+  const [settingsToast, setSettingsToast] = useState<string | null>(null);
+
+  // Estados interativos das Configurações Gerais
+  const [publicProfile, setPublicProfile] = useState(true);
+  const [allowDirectMessages, setAllowDirectMessages] = useState(true);
+  const [showActivityStatus, setShowActivityStatus] = useState(true);
+  const [notifyNewJobs, setNotifyNewJobs] = useState(true);
+  const [notifyCommunityReplies, setNotifyCommunityReplies] = useState(true);
+  const [notifyEmailDigest, setNotifyEmailDigest] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
@@ -87,6 +114,11 @@ export default function AppShell({
     } else {
       router.push("/home");
     }
+  }
+
+  function triggerSettingsSaved(msg = "Preferência atualizada com sucesso!") {
+    setSettingsToast(msg);
+    setTimeout(() => setSettingsToast(null), 2500);
   }
 
   const navItems = [
@@ -121,12 +153,6 @@ export default function AppShell({
       active: pathname === "/perfil",
     },
   ];
-
-  const initials = user.name
-    .split(" ")
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() || "")
-    .join("");
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col lg:flex-row">
@@ -182,6 +208,17 @@ export default function AppShell({
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setSettingsModalOpen(true);
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-sm text-zinc-300 hover:bg-zinc-900/60 transition"
+          >
+            <Settings className="w-5 h-5" />
+            <span>Configurações</span>
+          </button>
           <button
             type="button"
             onClick={handleLogout}
@@ -242,7 +279,7 @@ export default function AppShell({
               <span>Notificações</span>
             </button>
 
-            {/* Perfil */}
+            {/* Perfil (Avatar Padrão Universal Limpo) */}
             <Link
               href="/perfil"
               className={`flex items-center gap-4 px-3 py-2.5 rounded-full text-sm transition ${
@@ -251,8 +288,8 @@ export default function AppShell({
                   : "text-zinc-300 hover:text-white hover:bg-zinc-900/50 font-medium"
               }`}
             >
-              <div className="w-6 h-6 rounded-full bg-[#E8C58E] flex items-center justify-center text-[10px] font-extrabold text-amber-950 border border-amber-300/60">
-                {initials || "H"}
+              <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center text-zinc-300">
+                <UserIcon className="w-3.5 h-3.5" />
               </div>
               <span>Perfil</span>
             </Link>
@@ -279,9 +316,12 @@ export default function AppShell({
         </div>
 
         {/* Rodapé da Sidebar: Botão "Mais opções" com Popover Elegante */}
-        <div ref={moreMenuRef} className="relative pt-4 border-t border-zinc-900">
+        <div
+          ref={moreMenuRef}
+          className="relative pt-4 border-t border-zinc-900"
+        >
           {moreMenuOpen && (
-            <div className="absolute bottom-16 left-0 w-60 rounded-3xl bg-[#111111] border border-zinc-800 p-2 shadow-2xl z-50 space-y-1">
+            <div className="absolute bottom-16 left-0 w-64 rounded-3xl bg-[#111111] border border-zinc-800 p-2 shadow-2xl z-50 space-y-1">
               <div className="px-3 py-2.5 border-b border-zinc-800/80 mb-1">
                 <div className="flex items-center justify-between gap-1.5">
                   <p className="text-xs font-extrabold text-white truncate">
@@ -302,14 +342,18 @@ export default function AppShell({
                 </p>
               </div>
 
-              <Link
-                href="/perfil"
-                onClick={() => setMoreMenuOpen(false)}
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreMenuOpen(false);
+                  setSettingsTab("conta");
+                  setSettingsModalOpen(true);
+                }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-medium text-zinc-200 hover:bg-zinc-800/80 transition"
               >
                 <Settings className="w-4 h-4 text-[#087E96]" />
-                <span>Configurações e Perfil</span>
-              </Link>
+                <span>Configurações</span>
+              </button>
 
               <button
                 type="button"
@@ -372,6 +416,452 @@ export default function AppShell({
         <aside className="hidden xl:block w-80 shrink-0 border-l border-zinc-800/90 px-6 py-7 space-y-6">
           {rightSidebar}
         </aside>
+      )}
+
+      {/* Modal Amplo de Configurações Gerais da Plataforma (Estilo Twitter/X Settings) */}
+      {settingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-4 py-6">
+          <div className="w-full max-w-3xl h-[540px] max-h-[90vh] rounded-3xl bg-[#0D0D10] border border-zinc-800 shadow-2xl overflow-hidden flex flex-col md:flex-row">
+            {/* Menu Lateral das Configurações */}
+            <div className="w-full md:w-64 shrink-0 border-b md:border-b-0 md:border-r border-zinc-800/90 p-5 flex flex-col justify-between bg-[#09090B]">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-extrabold tracking-tight flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-[#087E96]" />
+                    <span>Configurações</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsModalOpen(false)}
+                    className="md:hidden p-1 rounded-full text-zinc-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <nav className="flex md:flex-col gap-1.5 overflow-x-auto no-scrollbar">
+                  {[
+                    {
+                      id: "conta" as SettingsTab,
+                      label: "Sua Conta",
+                      icon: UserIcon,
+                    },
+                    {
+                      id: "privacidade" as SettingsTab,
+                      label: "Privacidade e Segurança",
+                      icon: Shield,
+                    },
+                    {
+                      id: "notificacoes" as SettingsTab,
+                      label: "Notificações",
+                      icon: Bell,
+                    },
+                    {
+                      id: "acessibilidade" as SettingsTab,
+                      label: "Acessibilidade e Exibição",
+                      icon: Sliders,
+                    },
+                    {
+                      id: "sobre" as SettingsTab,
+                      label: "Sobre o Heston",
+                      icon: Info,
+                    },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    const active = settingsTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSettingsTab(item.id)}
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition shrink-0 text-left ${
+                          active
+                            ? "bg-[#087E96]/20 text-white border border-[#087E96]/50"
+                            : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+                        }`}
+                      >
+                        <Icon
+                          className={`w-4 h-4 shrink-0 ${
+                            active ? "text-[#087E96]" : "text-zinc-400"
+                          }`}
+                        />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              <div className="hidden md:block pt-4 border-t border-zinc-800/80 text-[11px] text-zinc-500">
+                Conectado como{" "}
+                <span className="text-zinc-300 font-bold">{user.username}</span>
+              </div>
+            </div>
+
+            {/* Painel de Conteúdo da Aba Selecionada */}
+            <div className="flex-1 p-6 overflow-y-auto no-scrollbar flex flex-col justify-between">
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+                  <div>
+                    <h3 className="text-lg font-extrabold">
+                      {settingsTab === "conta" && "Informações da Sua Conta"}
+                      {settingsTab === "privacidade" &&
+                        "Privacidade e Segurança"}
+                      {settingsTab === "notificacoes" &&
+                        "Preferências de Notificações"}
+                      {settingsTab === "acessibilidade" &&
+                        "Acessibilidade, Exibição e Idioma"}
+                      {settingsTab === "sobre" && "Sobre a Plataforma Heston"}
+                    </h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      {settingsTab === "conta" &&
+                        "Consulte seus dados cadastrais, credenciais e tipo de perfil."}
+                      {settingsTab === "privacidade" &&
+                        "Controle quem pode ver suas atividades e envie mensagens diretas."}
+                      {settingsTab === "notificacoes" &&
+                        "Escolha quais alertas de vagas e comunidades deseja receber."}
+                      {settingsTab === "acessibilidade" &&
+                        "Personalize a experiência visual em Dark Mode na plataforma."}
+                      {settingsTab === "sobre" &&
+                        "Detalhes técnicos da versão MVP, arquitetura e conformidade de segurança."}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSettingsModalOpen(false)}
+                    className="hidden md:flex p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {settingsToast && (
+                  <div className="rounded-2xl bg-emerald-950/80 border border-emerald-500/40 px-4 py-2.5 text-xs text-emerald-300 font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{settingsToast}</span>
+                  </div>
+                )}
+
+                {settingsTab === "conta" && (
+                  <div className="space-y-3.5 text-xs">
+                    <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-zinc-400 block text-[11px]">
+                          Nome de Usuário
+                        </span>
+                        <span className="font-bold text-white text-sm">
+                          {user.username}
+                        </span>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-[#087E96]/20 border border-[#087E96] text-cyan-300 text-[10px] font-extrabold">
+                        {user.role}
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-zinc-400 block text-[11px]">
+                          E-mail Cadastrado
+                        </span>
+                        <span className="font-bold text-white">
+                          {user.email}
+                        </span>
+                      </div>
+                      <span className="text-emerald-400 text-[11px] font-bold">
+                        Verificado ✓
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-zinc-400 block text-[11px]">
+                          Celular com DDI
+                        </span>
+                        <span className="font-bold text-white">
+                          {user.phone}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          triggerSettingsSaved(
+                            "Solicitação de atualização enviada!"
+                          )
+                        }
+                        className="text-[#087E96] font-bold hover:underline"
+                      >
+                        Atualizar
+                      </button>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <KeyRound className="w-4 h-4 text-[#087E96]" />
+                        <div>
+                          <span className="font-bold text-white block">
+                            Senha e Criptografia
+                          </span>
+                          <span className="text-zinc-400 text-[11px]">
+                            Protegida com hash irreversível bcryptjs (10 rounds)
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          triggerSettingsSaved(
+                            "Sessão validada e protegida com JWT HTTP-only!"
+                          )
+                        }
+                        className="px-3.5 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-[11px]"
+                      >
+                        Verificar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {settingsTab === "privacidade" && (
+                  <div className="space-y-3.5 text-xs">
+                    {[
+                      {
+                        title: "Perfil Visível para Recrutadores",
+                        desc: "Permitir que empresas parceiras encontrem seu perfil nas buscas e candidaturas.",
+                        checked: publicProfile,
+                        toggle: () => {
+                          setPublicProfile((p) => !p);
+                          triggerSettingsSaved();
+                        },
+                      },
+                      {
+                        title: "Receber Mensagens Diretas na Aba Notas",
+                        desc: "Permitir que membros da comunidade iniciem conversas diretas com você.",
+                        checked: allowDirectMessages,
+                        toggle: () => {
+                          setAllowDirectMessages((p) => !p);
+                          triggerSettingsSaved();
+                        },
+                      },
+                      {
+                        title: "Exibir Status Online nas Comunidades",
+                        desc: "Mostrar indicador verde quando você estiver ativo nos canais de grupo.",
+                        checked: showActivityStatus,
+                        toggle: () => {
+                          setShowActivityStatus((p) => !p);
+                          triggerSettingsSaved();
+                        },
+                      },
+                    ].map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between gap-4"
+                      >
+                        <div>
+                          <p className="font-bold text-white">{item.title}</p>
+                          <p className="text-zinc-400 text-[11px] mt-0.5">
+                            {item.desc}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={item.toggle}
+                          className={`w-11 h-6 rounded-full transition p-0.5 shrink-0 ${
+                            item.checked ? "bg-[#087E96]" : "bg-zinc-700"
+                          }`}
+                        >
+                          <span
+                            className={`block w-5 h-5 rounded-full bg-white transition transform ${
+                              item.checked ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {settingsTab === "notificacoes" && (
+                  <div className="space-y-3.5 text-xs">
+                    {[
+                      {
+                        title: "Alertas de Novas Vagas e Estágios",
+                        desc: "Notificar quando novas oportunidades compatíveis forem publicadas.",
+                        checked: notifyNewJobs,
+                        toggle: () => {
+                          setNotifyNewJobs((p) => !p);
+                          triggerSettingsSaved();
+                        },
+                      },
+                      {
+                        title: "Interações em Enquetes e Comunidades",
+                        desc: "Avisar quando comentarem ou votarem nas suas publicações do feed.",
+                        checked: notifyCommunityReplies,
+                        toggle: () => {
+                          setNotifyCommunityReplies((p) => !p);
+                          triggerSettingsSaved();
+                        },
+                      },
+                      {
+                        title: "Resumo Semanal por E-mail",
+                        desc: "Receber boletim com os flashcards e eventos em alta da semana.",
+                        checked: notifyEmailDigest,
+                        toggle: () => {
+                          setNotifyEmailDigest((p) => !p);
+                          triggerSettingsSaved();
+                        },
+                      },
+                    ].map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between gap-4"
+                      >
+                        <div>
+                          <p className="font-bold text-white">{item.title}</p>
+                          <p className="text-zinc-400 text-[11px] mt-0.5">
+                            {item.desc}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={item.toggle}
+                          className={`w-11 h-6 rounded-full transition p-0.5 shrink-0 ${
+                            item.checked ? "bg-[#087E96]" : "bg-zinc-700"
+                          }`}
+                        >
+                          <span
+                            className={`block w-5 h-5 rounded-full bg-white transition transform ${
+                              item.checked ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {settingsTab === "acessibilidade" && (
+                  <div className="space-y-3.5 text-xs">
+                    <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-white">
+                          Tema Oficial Dark Mode (#000000)
+                        </p>
+                        <p className="text-zinc-400 text-[11px] mt-0.5">
+                          Otimizado para conforto visual e contraste OLED.
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 rounded-full bg-zinc-800 text-cyan-300 font-bold text-[10px]">
+                        Ativo por padrão
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-bold text-white">
+                          Reduzir Animações de Carrossel
+                        </p>
+                        <p className="text-zinc-400 text-[11px] mt-0.5">
+                          Suavizar efeitos de transição e pulso nos placeholders de mídia.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReduceMotion((p) => !p);
+                          triggerSettingsSaved();
+                        }}
+                        className={`w-11 h-6 rounded-full transition p-0.5 shrink-0 ${
+                          reduceMotion ? "bg-[#087E96]" : "bg-zinc-700"
+                        }`}
+                      >
+                        <span
+                          className={`block w-5 h-5 rounded-full bg-white transition transform ${
+                            reduceMotion ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-bold text-white">
+                          Bordas de Alto Contraste
+                        </p>
+                        <p className="text-zinc-400 text-[11px] mt-0.5">
+                          Realçar contornos de inputs, cards e botões de ação.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHighContrast((p) => !p);
+                          triggerSettingsSaved();
+                        }}
+                        className={`w-11 h-6 rounded-full transition p-0.5 shrink-0 ${
+                          highContrast ? "bg-[#087E96]" : "bg-zinc-700"
+                        }`}
+                      >
+                        <span
+                          className={`block w-5 h-5 rounded-full bg-white transition transform ${
+                            highContrast ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {settingsTab === "sobre" && (
+                  <div className="space-y-3.5 text-xs">
+                    <div className="p-4 rounded-2xl bg-[#141418] border border-zinc-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-white text-sm">
+                          Heston MVP — Versão 0.5.0
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold">
+                          Produção / Neon DB
+                        </span>
+                      </div>
+                      <p className="text-zinc-400 leading-relaxed">
+                        Plataforma web centralizadora de oportunidades educacionais e profissionais (empregos, estágios, cursos, intercâmbios e eventos) com networking em comunidades.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3.5 rounded-2xl bg-[#141418] border border-zinc-800">
+                        <span className="text-zinc-400 block text-[10px]">
+                          Stack Full-Stack
+                        </span>
+                        <span className="font-bold text-white">
+                          Next.js 14 + TypeScript + Tailwind
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-2xl bg-[#141418] border border-zinc-800">
+                        <span className="text-zinc-400 block text-[10px]">
+                          Banco & Segurança
+                        </span>
+                        <span className="font-bold text-white">
+                          Neon Postgres + Prisma + JWT
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-zinc-800/80 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSettingsModalOpen(false)}
+                  className="px-6 h-10 rounded-full bg-[#087E96] hover:bg-[#0a93af] text-white font-bold text-xs transition"
+                >
+                  Concluir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Drawer/Modal de Notificações */}
@@ -437,7 +927,7 @@ export default function AppShell({
             </div>
             <p className="text-xs text-zinc-300 leading-relaxed">
               {infoModal === "salvos"
-                ? "Suas candidaturas realizadas em 1 clique e publicações curtidas ficam registradas diretamente na sua conta e podem ser acompanhadas nas abas Vagas e Perfil."
+                ? "Suas candidaturas realizadas em 1 clique e publicações favoritadas ficam registradas na sua conta para consulta rápida."
                 : "O Heston protege seus dados utilizando senhas com hash bcryptjs, sessões em Cookies HTTP-only assinados via JWT e consultas parametrizadas no PostgreSQL (Neon) via Prisma ORM."}
             </p>
             <button

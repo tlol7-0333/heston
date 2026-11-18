@@ -15,6 +15,8 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  ArrowRight,
+  ArrowLeft,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 
@@ -51,16 +53,20 @@ interface VagasClientProps {
   initialOpportunities: OpportunityItem[];
 }
 
-const FILTER_PILLS = [
+const PRIMARY_FILTER_PILLS = [
   "Todas",
   "Emprego",
   "Estágio",
   "Júnior",
   "Jovem Aprendiz",
+];
+
+const EXTRA_FILTER_PILLS = [
   "Cursos",
   "Intercâmbios",
   "Eventos",
   "Remoto",
+  "Presencial",
 ];
 
 const CATEGORY_OPTIONS = [
@@ -73,30 +79,39 @@ const CATEGORY_OPTIONS = [
   "Eventos",
 ];
 
+const VIBRANT_PALETTE = [
+  "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]", // Azul Oceano
+  "from-purple-600 via-indigo-600 to-fuchsia-500", // Roxo Indigo
+  "from-emerald-600 via-teal-500 to-cyan-600", // Verde Esmeralda/Teal
+  "from-rose-600 via-pink-600 to-fuchsia-600", // Magenta Rose
+  "from-amber-500 via-orange-500 to-yellow-500", // Âmbar Dourado
+  "from-[#087E96] via-cyan-500 to-blue-600", // Ciano Elétrico
+];
+
 const CARD_GRADIENTS = [
   {
-    label: "Ouro Solar",
-    value: "from-amber-400 via-yellow-500 to-amber-600",
+    label: "Azul Oceano",
+    value: "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]",
   },
   {
-    label: "Azul & Violeta",
-    value: "from-blue-600 via-indigo-500 to-purple-500",
+    label: "Roxo Indigo",
+    value: "from-purple-600 via-indigo-600 to-fuchsia-500",
   },
   {
-    label: "Cobre & Laranja",
-    value: "from-amber-700 via-orange-600 to-amber-800",
+    label: "Verde Esmeralda",
+    value: "from-emerald-600 via-teal-500 to-cyan-600",
   },
   {
-    label: "Vermelho & Coral",
-    value: "from-red-600 via-orange-600 to-amber-500",
+    label: "Magenta Rose",
+    value: "from-rose-600 via-pink-600 to-fuchsia-600",
   },
   {
-    label: "Verde Lima",
-    value: "from-emerald-500 via-lime-500 to-green-600",
+    label: "Âmbar Dourado",
+    value: "from-amber-500 via-orange-500 to-yellow-500",
   },
   {
-    label: "Teal Heston",
-    value: "from-[#087E96] via-cyan-600 to-blue-700",
+    label: "Ciano Elétrico",
+    value: "from-[#087E96] via-cyan-500 to-blue-600",
   },
 ];
 
@@ -110,13 +125,19 @@ interface NewJobErrors {
 
 interface OpportunityCarouselRowProps {
   title: string;
+  actionLabel: string;
+  onViewAll: () => void;
   items: OpportunityItem[];
-  renderCard: (opp: OpportunityItem) => React.ReactNode;
+  offsetIndex: number;
+  renderCard: (opp: OpportunityItem, colorIndex: number) => React.ReactNode;
 }
 
 function OpportunityCarouselRow({
   title,
+  actionLabel,
+  onViewAll,
   items,
+  offsetIndex,
   renderCard,
 }: OpportunityCarouselRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -147,8 +168,16 @@ function OpportunityCarouselRow({
 
   return (
     <section className="space-y-3.5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-extrabold tracking-tight">{title}</h2>
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#087E96] hover:text-cyan-400 transition group"
+        >
+          <span>{actionLabel}</span>
+          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
+        </button>
       </div>
 
       <div className="relative flex items-center">
@@ -157,7 +186,7 @@ function OpportunityCarouselRow({
             type="button"
             onClick={() => scrollRow("left")}
             aria-label={`Voltar em ${title}`}
-            className="flex absolute left-2 z-20 w-8 h-8 rounded-full bg-zinc-700/90 hover:bg-zinc-600 items-center justify-center text-white shadow-2xl transition"
+            className="flex absolute left-2 z-20 w-8 h-8 rounded-full bg-zinc-800/95 hover:bg-zinc-700 border border-zinc-600 items-center justify-center text-white shadow-2xl transition"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -168,7 +197,7 @@ function OpportunityCarouselRow({
           onScroll={updateScrollButtons}
           className="flex items-center gap-[24px] overflow-x-auto no-scrollbar scroll-smooth pr-12"
         >
-          {items.map((opp) => renderCard(opp))}
+          {items.map((opp, idx) => renderCard(opp, offsetIndex + idx))}
         </div>
 
         {canRight && items.length > 1 && (
@@ -176,7 +205,7 @@ function OpportunityCarouselRow({
             type="button"
             onClick={() => scrollRow("right")}
             aria-label={`Avançar em ${title}`}
-            className="flex absolute right-2 z-20 w-8 h-8 rounded-full bg-zinc-700/90 hover:bg-zinc-600 items-center justify-center text-white shadow-2xl transition"
+            className="flex absolute right-2 z-20 w-8 h-8 rounded-full bg-zinc-800/95 hover:bg-zinc-700 border border-zinc-600 items-center justify-center text-white shadow-2xl transition"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -194,6 +223,12 @@ export default function VagasClient({
     useState<OpportunityItem[]>(initialOpportunities);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todas");
+  const [showMoreCategories, setShowMoreCategories] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<
+    "recomendacoes" | "mais" | "regiao" | null
+  >(null);
+
+  const filterBarRef = useRef<HTMLDivElement>(null);
 
   // Estado de candidatura em 1 clique por vaga
   const [applyingId, setApplyingId] = useState<string | null>(null);
@@ -234,6 +269,12 @@ export default function VagasClient({
       return (
         opp.location.toLowerCase().includes("remoto") ||
         opp.location.toLowerCase().includes("online")
+      );
+    }
+    if (activeFilter === "Presencial") {
+      return (
+        opp.location.toLowerCase().includes("presencial") ||
+        opp.location.toLowerCase().includes("híbrido")
       );
     }
 
@@ -355,16 +396,26 @@ export default function VagasClient({
     }
   }
 
-  /* Card Padronizado na Proporção Exata 2:1 (w-[420px] h-[210px] rounded-[32px]) */
-  function renderOpportunityBannerCard(opp: OpportunityItem) {
+  /* Card Padronizado na Proporção Exata 2:1 (w-[420px] h-[210px] rounded-[32px]) com Variedade Vibrante de Cores */
+  function renderOpportunityBannerCard(
+    opp: OpportunityItem,
+    colorIndex: number,
+    isGrid = false
+  ) {
     const isApplying = applyingId === opp.id;
+    const variedGradient =
+      VIBRANT_PALETTE[colorIndex % VIBRANT_PALETTE.length];
 
     return (
       <div
         key={opp.id}
-        className={`w-[420px] h-[210px] shrink-0 rounded-[32px] bg-gradient-to-r ${opp.cardGradient} p-6 text-white shadow-xl flex items-center gap-5 relative overflow-hidden transition hover:scale-[1.01]`}
+        className={`${
+          isGrid ? "w-full h-[210px]" : "w-[420px] h-[210px] shrink-0"
+        } rounded-[32px] bg-gradient-to-r ${variedGradient} p-6 text-white shadow-xl flex items-center gap-5 relative overflow-hidden transition hover:scale-[1.01]`}
       >
-        {/* Emblema Esquerdo Grande (Fiel à Imagem de Vagas) */}
+        <div className="pointer-events-none absolute -right-10 -bottom-10 w-36 h-36 rounded-full bg-white/10 blur-md" />
+
+        {/* Emblema Esquerdo Grande */}
         <div className="w-16 h-16 rounded-2xl bg-black/20 backdrop-blur-sm border border-white/25 flex items-center justify-center shrink-0">
           <Building2 className="w-9 h-9 text-white/90" />
         </div>
@@ -483,28 +534,99 @@ export default function VagasClient({
           )}
         </div>
 
-        {/* Pílulas de Filtro Rápido (Apenas a ativa em degradê azul-rosa, inativas com borda fina padrão) */}
-        <div className="flex items-center justify-center gap-2.5 overflow-x-auto no-scrollbar py-1">
-          {FILTER_PILLS.map((pill) => {
-            const active = activeFilter === pill;
-            return (
-              <button
-                key={pill}
-                type="button"
-                onClick={() => setActiveFilter(pill)}
-                className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition shrink-0 ${
-                  active
-                    ? "bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 text-white shadow"
-                    : "bg-black border border-pink-500/40 hover:border-pink-500 text-zinc-200"
-                }`}
-              >
-                {pill}
-              </button>
-            );
-          })}
+        {/* Barra de Filtros do Topo com 5 Categorias Principais + Botão "Mais +" em Cinza e Setas Laterais */}
+        <div className="relative flex items-center justify-center gap-2">
+          {showMoreCategories && (
+            <button
+              type="button"
+              onClick={() =>
+                filterBarRef.current?.scrollBy({
+                  left: -220,
+                  behavior: "smooth",
+                })
+              }
+              aria-label="Rolar categorias para esquerda"
+              className="w-7 h-7 rounded-full bg-zinc-900 border border-zinc-700 hover:border-zinc-500 flex items-center justify-center text-zinc-300 shrink-0"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <div
+            ref={filterBarRef}
+            className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 scroll-smooth"
+          >
+            {PRIMARY_FILTER_PILLS.map((pill) => {
+              const active = activeFilter === pill;
+              return (
+                <button
+                  key={pill}
+                  type="button"
+                  onClick={() => {
+                    setActiveFilter(pill);
+                    setExpandedSection(null);
+                  }}
+                  className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition shrink-0 ${
+                    active
+                      ? "bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 text-white shadow"
+                      : "bg-black border border-pink-500/40 hover:border-pink-500 text-zinc-200"
+                  }`}
+                >
+                  {pill}
+                </button>
+              );
+            })}
+
+            {showMoreCategories &&
+              EXTRA_FILTER_PILLS.map((pill) => {
+                const active = activeFilter === pill;
+                return (
+                  <button
+                    key={pill}
+                    type="button"
+                    onClick={() => {
+                      setActiveFilter(pill);
+                      setExpandedSection(null);
+                    }}
+                    className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition shrink-0 ${
+                      active
+                        ? "bg-gradient-to-r from-[#087E96] via-purple-500 to-pink-500 text-white shadow"
+                        : "bg-black border border-pink-500/40 hover:border-pink-500 text-zinc-200"
+                    }`}
+                  >
+                    {pill}
+                  </button>
+                );
+              })}
+
+            {/* Botão "Mais +" com Fundo e Contorno em Tom Cinza */}
+            <button
+              type="button"
+              onClick={() => setShowMoreCategories((prev) => !prev)}
+              className="px-4 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-600 text-zinc-300 hover:text-white text-xs font-extrabold transition shrink-0"
+            >
+              {showMoreCategories ? "Menos -" : "Mais +"}
+            </button>
+          </div>
+
+          {showMoreCategories && (
+            <button
+              type="button"
+              onClick={() =>
+                filterBarRef.current?.scrollBy({
+                  left: 220,
+                  behavior: "smooth",
+                })
+              }
+              aria-label="Rolar categorias para direita"
+              className="w-7 h-7 rounded-full bg-zinc-900 border border-zinc-700 hover:border-zinc-500 flex items-center justify-center text-zinc-300 shrink-0"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Listagem de Vagas em Carrosséis Horizontais */}
+        {/* Listagem de Vagas (Grade Expandida "Ver todas", Filtro ou Carrosséis Horizontais) */}
         {filteredOpportunities.length === 0 ? (
           <div className="rounded-3xl bg-[#111111] border border-zinc-800 p-12 text-center space-y-3">
             <Briefcase className="w-8 h-8 text-[#087E96] mx-auto" />
@@ -519,12 +641,42 @@ export default function VagasClient({
               onClick={() => {
                 setSearchTerm("");
                 setActiveFilter("Todas");
+                setExpandedSection(null);
               }}
               className="px-5 py-2 rounded-full bg-[#087E96] text-white text-xs font-bold"
             >
               Ver todas as vagas
             </button>
           </div>
+        ) : expandedSection ? (
+          <section className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-extrabold">
+                {expandedSection === "recomendacoes" &&
+                  "Todas as Recomendações"}
+                {expandedSection === "mais" && "Todas em Mais para você"}
+                {expandedSection === "regiao" &&
+                  "Todas Perto da sua região"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setExpandedSection(null)}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 hover:border-white text-xs font-bold text-white transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Voltar para carrossel</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {(expandedSection === "recomendacoes"
+                ? recomendacoesList
+                : expandedSection === "mais"
+                ? maisParaVoceList
+                : pertoDaRegiaoList
+              ).map((opp, idx) => renderOpportunityBannerCard(opp, idx, true))}
+            </div>
+          </section>
         ) : isFiltering ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -542,30 +694,45 @@ export default function VagasClient({
                 Limpar filtros
               </button>
             </div>
-            <OpportunityCarouselRow
-              title={`Vagas em ${activeFilter}`}
-              items={filteredOpportunities}
-              renderCard={renderOpportunityBannerCard}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {filteredOpportunities.map((opp, idx) =>
+                renderOpportunityBannerCard(opp, idx, true)
+              )}
+            </div>
           </div>
         ) : (
-          <div className="space-y-9">
+          <div className="space-y-10">
             <OpportunityCarouselRow
               title="Recomendações"
+              actionLabel="Ver todas as recomendações"
+              onViewAll={() => setExpandedSection("recomendacoes")}
               items={recomendacoesList}
-              renderCard={renderOpportunityBannerCard}
+              offsetIndex={0}
+              renderCard={(opp, cIdx) =>
+                renderOpportunityBannerCard(opp, cIdx, false)
+              }
             />
 
             <OpportunityCarouselRow
               title="Mais para você"
+              actionLabel="Ver todas de Mais para você"
+              onViewAll={() => setExpandedSection("mais")}
               items={maisParaVoceList}
-              renderCard={renderOpportunityBannerCard}
+              offsetIndex={2}
+              renderCard={(opp, cIdx) =>
+                renderOpportunityBannerCard(opp, cIdx, false)
+              }
             />
 
             <OpportunityCarouselRow
               title="Perto da sua região"
+              actionLabel="Ver todas da região"
+              onViewAll={() => setExpandedSection("regiao")}
               items={pertoDaRegiaoList}
-              renderCard={renderOpportunityBannerCard}
+              offsetIndex={4}
+              renderCard={(opp, cIdx) =>
+                renderOpportunityBannerCard(opp, cIdx, false)
+              }
             />
           </div>
         )}

@@ -19,11 +19,18 @@ import {
   Heart,
   MessageCircle,
   Share2,
+  Bookmark,
   Plus,
   CheckCircle2,
+  Link2,
+  EyeOff,
+  Flag,
+  Trash2,
+  User as UserIcon,
 } from "lucide-react";
 import AppShell, { SessionUserClient } from "@/components/AppShell";
 import RightSidebarWidgets from "@/components/RightSidebarWidgets";
+import { HestonLogo } from "@/components/HestonLogo";
 
 export interface PostItem {
   id: string;
@@ -55,20 +62,20 @@ interface PollData {
 
 const FLASHCARD_THEMES = [
   {
-    label: "Azul Royal",
-    value: "from-[#0052D4] via-[#1A6DFF] to-[#0077FF]",
+    label: "Azul Oceano",
+    value: "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]",
   },
   {
-    label: "Amarelo Ouro",
-    value: "from-[#F5B700] via-[#E5A900] to-[#D99B00]",
+    label: "Âmbar Dourado",
+    value: "from-[#F59E0B] via-[#D97706] to-[#EA580C]",
   },
   {
-    label: "Roxo & Pink",
-    value: "from-purple-600 via-fuchsia-500 to-pink-500",
+    label: "Roxo & Magenta",
+    value: "from-purple-600 via-fuchsia-600 to-pink-500",
   },
   {
     label: "Verde Esmeralda",
-    value: "from-emerald-500 via-teal-500 to-cyan-600",
+    value: "from-emerald-600 via-teal-500 to-cyan-600",
   },
 ];
 
@@ -87,220 +94,27 @@ function formatRelativeTime(isoDate: string): string {
   return `há ${diffDays} d`;
 }
 
-/* Ilustração SVG de Personagem Recortado para a Metade Direita dos Flashcards */
-function FlashcardCharacterIllustration({ index }: { index: number }) {
-  if (index % 2 === 1) {
-    // Personagem Feminina com Megafone (Fiel ao 2º Flashcard do Protótipo)
-    return (
-      <svg
-        viewBox="0 0 180 190"
-        className="w-full h-full object-contain drop-shadow-lg"
-        fill="none"
-      >
-        {/* Cabelo longo */}
-        <path
-          d="M36 62 C20 82, 18 118, 28 142 C34 128, 36 105, 44 92 Z"
-          fill="#1F242D"
-        />
-        <circle cx="58" cy="60" r="24" fill="#1F242D" />
-        {/* Rosto */}
-        <ellipse cx="64" cy="66" rx="18" ry="20" fill="#F4A582" />
-        {/* Olhos e Sorriso */}
-        <circle cx="62" cy="62" r="2" fill="#1F242D" />
-        <circle cx="73" cy="62" r="2" fill="#1F242D" />
-        <path
-          d="M65 71 Q70 76 74 71"
-          stroke="#8B2635"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        {/* Camiseta Amarela */}
-        <path
-          d="M38 110 C42 92, 74 92, 82 112 L88 188 L34 188 Z"
-          fill="#FFE100"
-        />
-        {/* Braço segurando o megafone */}
-        <path
-          d="M72 115 L102 90 L108 98 L80 128 Z"
-          fill="#F4A582"
-        />
-        {/* Megafone Branco/Azul */}
-        <polygon points="94,76 146,52 146,104 94,88" fill="#E8F1F5" />
-        <ellipse cx="146" cy="78" rx="7" ry="26" fill="#B8D4E3" />
-        <rect x="86" y="75" width="10" height="14" rx="3" fill="#1D70B8" />
-        <path
-          d="M102 88 L108 106 L100 108 L95 88 Z"
-          fill="#1D70B8"
-        />
-        {/* Ondas sonoras pretas */}
-        <path
-          d="M158 56 L168 50 M160 72 L172 70 M158 90 L170 95"
-          stroke="#111111"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-
-  // Personagem Masculino Sorridente com Polo Cinza (Fiel ao 1º Flashcard do Protótipo)
+/* Placeholder de Mídia Moderno (Skeleton / Wireframe de Imagem Elegante) */
+function PostMediaSkeleton({ label }: { label?: string | null }) {
   return (
-    <svg
-      viewBox="0 0 180 190"
-      className="w-full h-full object-contain drop-shadow-lg"
-      fill="none"
-    >
-      {/* Ombros e Camisa Polo Cinza */}
-      <path
-        d="M28 190 L36 132 C40 116, 140 116, 144 132 L152 190 Z"
-        fill="#585D66"
-      />
-      {/* Gola da camisa */}
-      <polygon points="68,118 90,138 112,118 104,112 76,112" fill="#3B3F46" />
-      {/* Pescoço */}
-      <rect x="78" y="96" width="24" height="24" rx="8" fill="#F2B89B" />
-      {/* Rosto */}
-      <rect x="64" y="42" width="52" height="62" rx="24" fill="#F7C6AD" />
-      {/* Cabelo Castanho Moderno */}
-      <path
-        d="M60 58 C56 30, 82 18, 108 26 C122 30, 124 46, 118 60 C112 44, 98 38, 82 42 C70 44, 64 52, 60 58 Z"
-        fill="#4A3228"
-      />
-      {/* Sobrancelhas e Olhos */}
-      <path
-        d="M73 60 Q79 57 84 60 M96 60 Q101 57 107 60"
-        stroke="#3A251D"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      <circle cx="79" cy="67" r="3" fill="#231F20" />
-      <circle cx="101" cy="67" r="3" fill="#231F20" />
-      {/* Sorriso largo branco */}
-      <path
-        d="M78 82 Q90 92 102 82 Z"
-        fill="#FFFFFF"
-        stroke="#8C4A3E"
-        strokeWidth="2"
-      />
-      {/* Logo colorido na camisa */}
-      <polygon points="62,158 68,148 74,158" fill="#FF3B6B" />
-      <text x="77" y="157" fill="#D4D4D8" fontSize="7" fontWeight="bold">
-        HESTON
-      </text>
-    </svg>
-  );
-}
+    <div className="relative w-full h-[240px] max-h-[280px] rounded-2xl overflow-hidden bg-zinc-900/80 border border-zinc-800/80 flex flex-col items-center justify-center p-6 select-none group">
+      {/* Efeito de brilho/shimmer sutil */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(8,126,150,0.12),transparent_70%)] animate-pulse" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/60 to-transparent" />
 
-/* Arte Gráfica Visual 16:9 no Meio dos Posts do Feed */
-function FeedPostVisualMedia({
-  title,
-  index,
-}: {
-  title: string | null;
-  index: number;
-}) {
-  const headline =
-    title ||
-    (index % 2 === 0
-      ? "O QUE NINGUÉM TE CONTOU SOBRE O DROPSHIPPING!"
-      : "COMO DESTACAR SEU PORTFÓLIO TECH EM 2026!");
-
-  return (
-    <div className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden border border-zinc-800 bg-gradient-to-b from-zinc-700 via-zinc-800 to-zinc-950 select-none">
-      {/* Iluminação de estúdio sutil no fundo */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.16),transparent_65%)]" />
-      <div className="absolute -left-8 top-10 w-40 h-64 bg-white/10 rotate-12 blur-md" />
-      <div className="absolute -right-8 top-10 w-40 h-64 bg-white/10 -rotate-12 blur-md" />
-
-      {/* Título em Caixa Alta no Topo da Imagem (Fiel ao print do Feed) */}
-      <div className="relative z-10 px-6 pt-6 text-center">
-        <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] leading-snug">
-          {headline}
-        </h3>
+      <div className="relative z-10 flex flex-col items-center text-center space-y-2.5">
+        <div className="w-12 h-12 rounded-2xl bg-zinc-800/90 border border-zinc-700/80 flex items-center justify-center text-zinc-400 animate-pulse">
+          <ImageIcon className="w-6 h-6" />
+        </div>
+        <span className="text-[11px] font-semibold text-zinc-400 tracking-wide">
+          Espaço reservado para mídia da publicação
+        </span>
+        {label && (
+          <span className="text-[10px] text-zinc-500 max-w-sm truncate">
+            {label}
+          </span>
+        )}
       </div>
-
-      {/* Emoji Pensativo à Esquerda */}
-      <div className="absolute left-[22%] top-[32%] text-4xl sm:text-5xl drop-shadow-xl select-none">
-        🤔
-      </div>
-
-      {/* Ilustração Central na Metade Inferior da Imagem */}
-      <svg
-        viewBox="0 0 500 220"
-        className="absolute bottom-0 inset-x-0 w-full h-[72%] object-cover"
-        fill="none"
-      >
-        {/* Camiseta escura do personagem */}
-        <path
-          d="M170 220 C178 155, 322 155, 330 220 Z"
-          fill="#262626"
-        />
-        {/* Rosto e Cabelo Cacheado */}
-        <rect x="216" y="68" width="68" height="82" rx="28" fill="#F4A582" />
-        <path
-          d="M212 82 C208 52, 238 42, 265 48 C288 52, 294 72, 286 86 C272 72, 232 70, 212 82 Z"
-          fill="#D9532F"
-        />
-        {/* Olhos e expressão */}
-        <circle cx="238" cy="102" r="3" fill="#1F242D" />
-        <circle cx="264" cy="102" r="3" fill="#1F242D" />
-        <path
-          d="M242 124 Q252 119 260 124"
-          stroke="#1F242D"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        {/* Leques de Notas Verdes à Esquerda e Direita */}
-        <g transform="rotate(-18 145 160)">
-          <rect
-            x="95"
-            y="105"
-            width="85"
-            height="120"
-            rx="6"
-            fill="#A3B86C"
-            stroke="#3B4D28"
-            strokeWidth="2"
-          />
-          <rect
-            x="110"
-            y="98"
-            width="85"
-            height="120"
-            rx="6"
-            fill="#B5CA7A"
-            stroke="#3B4D28"
-            strokeWidth="2"
-          />
-          <circle cx="152" cy="158" r="16" fill="#8FA656" />
-        </g>
-        <g transform="rotate(18 355 160)">
-          <rect
-            x="320"
-            y="105"
-            width="85"
-            height="120"
-            rx="6"
-            fill="#A3B86C"
-            stroke="#3B4D28"
-            strokeWidth="2"
-          />
-          <rect
-            x="305"
-            y="98"
-            width="85"
-            height="120"
-            rx="6"
-            fill="#B5CA7A"
-            stroke="#3B4D28"
-            strokeWidth="2"
-          />
-          <circle cx="347" cy="158" r="16" fill="#8FA656" />
-        </g>
-        {/* Mãos segurando os leques */}
-        <ellipse cx="142" cy="182" rx="22" ry="18" fill="#F4A582" />
-        <ellipse cx="358" cy="182" rx="22" ry="18" fill="#F4A582" />
-      </svg>
     </div>
   );
 }
@@ -310,6 +124,9 @@ export default function HomeFeedClient({
   initialPosts,
 }: HomeFeedClientProps) {
   const [posts, setPosts] = useState<PostItem[]>(initialPosts);
+  const [hiddenPostIds, setHiddenPostIds] = useState<Record<string, boolean>>(
+    {}
+  );
   const [feedFilter, setFeedFilter] = useState<"para-voce" | "perto">(
     "para-voce"
   );
@@ -319,7 +136,6 @@ export default function HomeFeedClient({
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const [pollsByPostId, setPollsByPostId] = useState<Record<string, PollData>>({
-    // Enquete interativa demonstrativa pronta para votação
     default_poll: {
       options: [
         "Projetos práticos no GitHub",
@@ -350,8 +166,12 @@ export default function HomeFeedClient({
   const [canScrollFcLeft, setCanScrollFcLeft] = useState(false);
   const [canScrollFcRight, setCanScrollFcRight] = useState(true);
 
-  // Curtidas locais
+  // Interações dos Posts (Curtir, Salvar, Compartilhar e Menu `...`)
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+  const [copiedPostId, setCopiedPostId] = useState<string | null>(null);
+  const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
+  const [toastFeedback, setToastFeedback] = useState<string | null>(null);
 
   const postInputRef = useRef<HTMLTextAreaElement>(null);
   const flashcardScrollRef = useRef<HTMLDivElement>(null);
@@ -359,6 +179,7 @@ export default function HomeFeedClient({
   const flashcards = posts.filter((p) => p.isFlashcard);
   const feedPosts = posts.filter((p) => {
     if (p.isFlashcard) return false;
+    if (hiddenPostIds[p.id]) return false;
     if (feedFilter === "perto") {
       return p.author.location?.toLowerCase().includes("porto velho") ?? true;
     }
@@ -381,10 +202,15 @@ export default function HomeFeedClient({
       window.removeEventListener("resize", updateFlashcardScrollState);
   }, [flashcards.length, updateFlashcardScrollState]);
 
+  function showToast(msg: string) {
+    setToastFeedback(msg);
+    setTimeout(() => setToastFeedback(null), 2600);
+  }
+
   function scrollFlashcards(direction: "left" | "right") {
     const el = flashcardScrollRef.current;
     if (!el) return;
-    const offset = direction === "left" ? -444 : 444;
+    const offset = direction === "left" ? -504 : 504;
     el.scrollBy({ left: offset, behavior: "smooth" });
   }
 
@@ -416,6 +242,17 @@ export default function HomeFeedClient({
     });
   }
 
+  function handleSharePost(postId: string) {
+    if (typeof window !== "undefined" && navigator.clipboard) {
+      navigator.clipboard
+        .writeText(`${window.location.origin}/home#post-${postId}`)
+        .catch(() => {});
+    }
+    setCopiedPostId(postId);
+    showToast("Link da publicação copiado!");
+    setTimeout(() => setCopiedPostId(null), 2000);
+  }
+
   async function handleCreatePost(e: React.FormEvent) {
     e.preventDefault();
     if (!postContent.trim()) {
@@ -441,7 +278,7 @@ export default function HomeFeedClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: postContent.trim(),
-          title: postContent.trim().slice(0, 58).toUpperCase(),
+          title: null,
           isFlashcard: false,
         }),
       });
@@ -467,6 +304,7 @@ export default function HomeFeedClient({
       setPostContent("");
       setPollOptions(["", ""]);
       setShowPollCreator(false);
+      showToast("Publicação enviada com sucesso!");
     } catch {
       setPostError("Erro de conexão ao publicar.");
     } finally {
@@ -510,17 +348,12 @@ export default function HomeFeedClient({
         setFcTitle("");
         setFcContent("");
         setFlashcardModalOpen(false);
+        showToast("Flashcard publicado no destaque!");
       }
     } finally {
       setPublishingFc(false);
     }
   }
-
-  const userInitials = user.name
-    .split(" ")
-    .slice(0, 2)
-    .map((n) => n[0]?.toUpperCase() || "")
-    .join("");
 
   return (
     <AppShell
@@ -528,13 +361,21 @@ export default function HomeFeedClient({
       rightSidebar={<RightSidebarWidgets />}
       onQuickPostClick={() => postInputRef.current?.focus()}
     >
-      <div className="max-w-3xl mx-auto pb-28 relative">
-        {/* Caixa de Criação de Publicação (Post + Enquete, sem ícone de Calendário) */}
+      <div className="max-w-3xl mx-auto pb-32 relative">
+        {/* Toast Flutuante de Feedback */}
+        {toastFeedback && (
+          <div className="fixed top-6 right-6 z-50 rounded-full bg-zinc-900/95 border border-[#087E96] px-5 py-2.5 text-xs font-bold text-white shadow-2xl flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#087E96]" />
+            <span>{toastFeedback}</span>
+          </div>
+        )}
+
+        {/* Caixa de Criação de Publicação (Avatar Universal Limpo + Enquete) */}
         <section className="border-b border-zinc-800/90 px-6 py-5">
           <form noValidate onSubmit={handleCreatePost}>
             <div className="flex items-start gap-4">
-              <div className="w-11 h-11 rounded-full bg-[#E8C58E] border border-amber-300/60 flex items-center justify-center text-sm font-extrabold text-amber-950 shrink-0">
-                {userInitials || "H"}
+              <div className="w-11 h-11 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0">
+                <UserIcon className="w-5 h-5" />
               </div>
 
               <div className="flex-1 space-y-2.5">
@@ -547,7 +388,7 @@ export default function HomeFeedClient({
                     if (postError) setPostError(null);
                   }}
                   placeholder="Publique os seus interesses..."
-                  className={`w-full resize-none rounded-2xl bg-transparent px-2 py-1.5 text-sm text-white placeholder-zinc-500 outline-none transition ${
+                  className={`w-full resize-none rounded-2xl bg-transparent px-2 py-1.5 text-[15px] text-white placeholder-zinc-500 outline-none transition ${
                     postError ? "border border-red-500 px-3" : ""
                   }`}
                 />
@@ -602,7 +443,6 @@ export default function HomeFeedClient({
                 )}
 
                 <div className="flex items-center justify-between pt-1">
-                  {/* Barra de Ícones (1º ícone = Enquete/Barras, sem ícone de Calendário) */}
                   <div className="flex items-center gap-3.5 text-zinc-400">
                     <button
                       type="button"
@@ -641,9 +481,9 @@ export default function HomeFeedClient({
           </form>
         </section>
 
-        {/* Seção de Flashcards Padronizados (Proporção Fixa 2:1 -> w-[420px] h-[210px] rounded-[32px] gap-[24px]) */}
-        <section className="px-6 py-6 border-b border-zinc-900">
-          <div className="flex items-center gap-6 mb-4">
+        {/* Seção de Flashcards em Grande Destaque no Topo (w-[480px] h-[240px] rounded-[32px] com Formas Abstratas Modernas) */}
+        <section className="px-6 py-7 border-b border-zinc-900">
+          <div className="flex items-center gap-6 mb-5">
             <div className="flex items-center gap-2 text-xs font-extrabold tracking-wider uppercase text-white">
               <Zap className="w-4 h-4 fill-white text-white" />
               <span>FLASHCARDS</span>
@@ -668,7 +508,7 @@ export default function HomeFeedClient({
                 type="button"
                 onClick={() => scrollFlashcards("left")}
                 aria-label="Flashcards anteriores"
-                className="flex absolute left-2 z-20 w-8 h-8 rounded-full bg-zinc-700/90 hover:bg-zinc-600 items-center justify-center text-white shadow-xl transition"
+                className="flex absolute left-2 z-20 w-9 h-9 rounded-full bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700 items-center justify-center text-white shadow-2xl transition"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -684,8 +524,8 @@ export default function HomeFeedClient({
                 const gradient =
                   fc.cardColor ||
                   (isSecond
-                    ? "from-[#F5B700] via-[#E5A900] to-[#D99B00]"
-                    : "from-[#0052D4] via-[#1A6DFF] to-[#0077FF]");
+                    ? "from-[#F59E0B] via-[#D97706] to-[#EA580C]"
+                    : "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]");
                 const displayUsername =
                   idx === 0
                     ? "thomasbraga"
@@ -696,66 +536,53 @@ export default function HomeFeedClient({
                 return (
                   <div
                     key={fc.id}
-                    className={`w-[420px] h-[210px] shrink-0 rounded-[32px] bg-gradient-to-br ${gradient} p-5 text-white flex items-stretch justify-between shadow-xl relative overflow-hidden`}
+                    className={`w-[480px] h-[240px] shrink-0 rounded-[32px] bg-gradient-to-br ${gradient} p-7 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden group`}
                   >
-                    {/* Lado Esquerdo (55% do Card): Avatar + Username, Título Bold, Subtítulo com Data Sublinhada e Botão SAIBA MAIS */}
-                    <div className="w-[56%] flex flex-col justify-between z-10 pr-2">
-                      {/* Topo: Avatar com aro azul + username */}
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-zinc-900 ring-2 ring-cyan-400 flex items-center justify-center text-[11px] font-extrabold text-white shrink-0">
-                          {displayUsername[0]?.toUpperCase()}
+                    {/* Formas Geométricas Abstratas Modernas + Marca d'água da Logo no Fundo Direito */}
+                    <div className="pointer-events-none absolute -right-12 -top-12 w-56 h-56 rounded-full bg-white/15 blur-2xl" />
+                    <div className="pointer-events-none absolute right-6 -bottom-16 w-48 h-48 rounded-full border border-white/20 bg-white/5" />
+                    <div className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 opacity-15 group-hover:scale-105 transition duration-300">
+                      <HestonLogo size={115} />
+                    </div>
+
+                    {/* Topo: Avatar Universal com Aro Ciano + Username + Badge */}
+                    <div className="relative z-10 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-black/30 ring-2 ring-cyan-300/80 backdrop-blur-sm flex items-center justify-center text-white shrink-0">
+                          <UserIcon className="w-4 h-4" />
                         </div>
-                        <span className="text-xs font-medium text-white truncate">
+                        <span className="text-xs font-bold text-white tracking-wide">
                           {displayUsername}
                         </span>
                       </div>
 
-                      {/* Centro: Título em Caixa Alta + Subtítulo com data sublinhada */}
-                      <div className="space-y-1 my-auto py-1">
-                        <h3 className="text-[15px] font-black uppercase leading-[1.15] tracking-tight drop-shadow-sm line-clamp-3">
-                          {fc.title || "VENHA FAZER PARTE DA NOSSA EMPRESA!"}
-                        </h3>
-                        <p className="text-[10px] text-white/95 leading-tight line-clamp-2">
-                          {idx === 0 ? (
-                            <>
-                              Entregue o seu currículo até{" "}
-                              <span className="underline font-bold">12/09</span>
-                              .
-                            </>
-                          ) : idx === 1 ? (
-                            <>
-                              Venha conhecer mais sobre empreendedorismo dia{" "}
-                              <span className="underline font-bold">25/09</span>
-                              !
-                            </>
-                          ) : (
-                            fc.content
-                          )}
-                        </p>
-                      </div>
-
-                      {/* Base: Botão Pílula Branco SAIBA MAIS */}
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => setActiveFlashcard(fc)}
-                          className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-black font-black text-[9px] uppercase tracking-wider transition shadow"
-                        >
-                          SAIBA MAIS
-                        </button>
-                      </div>
+                      <span className="px-3 py-1 rounded-full bg-black/25 backdrop-blur-sm border border-white/15 text-[10px] font-extrabold uppercase tracking-wider">
+                        {fc.author.role}
+                      </span>
                     </div>
 
-                    {/* Lado Direito (45% do Card): Ilustração de Personagem Recortado + Logo no Canto Superior Direito */}
-                    <div className="w-[44%] relative flex items-end justify-center">
-                      {/* Pequeno ícone/logo da empresa no canto superior direito */}
-                      <div className="absolute top-0 right-1 w-6 h-6 rounded-lg bg-black/20 backdrop-blur-sm flex items-center justify-center">
-                        <span className="w-3 h-3 rotate-45 bg-gradient-to-tr from-pink-500 via-amber-400 to-cyan-300 block rounded-[2px]" />
-                      </div>
+                    {/* Centro: Título Marcante + Subtítulo Conciso */}
+                    <div className="relative z-10 max-w-[78%] space-y-2 my-auto">
+                      <h3 className="text-xl font-black uppercase leading-tight tracking-tight drop-shadow-sm line-clamp-2">
+                        {fc.title || "VENHA FAZER PARTE DA NOSSA EMPRESA!"}
+                      </h3>
+                      <p className="text-xs text-white/90 leading-relaxed line-clamp-2">
+                        {fc.content}
+                      </p>
+                    </div>
 
-                      <div className="w-full h-[175px] -mb-5">
-                        <FlashcardCharacterIllustration index={idx} />
-                      </div>
+                    {/* Base: Botão SAIBA MAIS */}
+                    <div className="relative z-10 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setActiveFlashcard(fc)}
+                        className="px-5 py-2 rounded-full bg-white hover:bg-zinc-100 text-black font-black text-[10px] uppercase tracking-wider transition shadow-lg"
+                      >
+                        SAIBA MAIS
+                      </button>
+                      <span className="text-[11px] text-white/80 font-semibold">
+                        {formatRelativeTime(fc.createdAt)}
+                      </span>
                     </div>
                   </div>
                 );
@@ -767,7 +594,7 @@ export default function HomeFeedClient({
                 type="button"
                 onClick={() => scrollFlashcards("right")}
                 aria-label="Próximos flashcards"
-                className="flex absolute right-2 z-20 w-8 h-8 rounded-full bg-zinc-700/90 hover:bg-zinc-600 items-center justify-center text-white shadow-xl transition"
+                className="flex absolute right-2 z-20 w-9 h-9 rounded-full bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700 items-center justify-center text-white shadow-2xl transition"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -775,52 +602,180 @@ export default function HomeFeedClient({
           </div>
         </section>
 
-        {/* Lista de Publicações do Feed com Card de Imagem Visual 16:9 e Suporte a Enquetes */}
-        <section className="px-6 py-6 space-y-7">
+        {/* Lista de Publicações do Feed (Estilo Twitter/X: Texto Acima, Placeholder de Mídia Compacto Abaixo, 4 Ações Sociais e Menu `...`) */}
+        <section className="px-6 py-6 space-y-6">
           {feedPosts.map((post, idx) => {
             const isLiked = Boolean(likedPosts[post.id]);
+            const isSaved = Boolean(savedPosts[post.id]);
+            const isCopied = copiedPostId === post.id;
+            const isMenuOpen = openMenuPostId === post.id;
             const poll =
               pollsByPostId[post.id] ||
               (idx === 1 ? pollsByPostId.default_poll : undefined);
 
             return (
-              <article key={post.id} className="space-y-3.5">
-                {/* Cabeçalho do Post (Fiel ao print: Avatar + Pedro Martins • há 2 horas + ...) */}
-                <div className="flex items-center justify-between gap-3 px-1">
+              <article
+                id={`post-${post.id}`}
+                key={post.id}
+                className="rounded-3xl bg-[#0D0D10] border border-zinc-800/90 p-5 sm:p-6 space-y-3.5 transition hover:border-zinc-700/80"
+              >
+                {/* Cabeçalho do Post + Menu Dropdown Funcional `...` */}
+                <div className="flex items-center justify-between gap-3 relative">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-extrabold text-white shrink-0">
-                      {post.author.name[0]?.toUpperCase() || "P"}
+                    <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0">
+                      <UserIcon className="w-5 h-5" />
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-white">
-                        {post.author.name}
-                      </span>
-                      <span className="text-xs text-zinc-500">
-                        • {formatRelativeTime(post.createdAt)}
-                      </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-extrabold text-white">
+                          {post.author.name}
+                        </span>
+                        <span className="text-xs text-zinc-400">
+                          {post.author.username}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                            post.author.role === "EMPRESA"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                              : "bg-[#087E96]/25 text-cyan-300 border border-[#087E96]/50"
+                          }`}
+                        >
+                          {post.author.role}
+                        </span>
+                        <span className="text-xs text-zinc-500">
+                          • {formatRelativeTime(post.createdAt)}
+                        </span>
+                      </div>
+                      {post.author.headline && (
+                        <p className="text-[11px] text-zinc-400 truncate mt-0.5">
+                          {post.author.headline}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    aria-label="Mais opções"
-                    className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
+                  {/* Botão `...` com Dropdown Escuro Funcional */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenMenuPostId((prev) =>
+                          prev === post.id ? null : post.id
+                        )
+                      }
+                      aria-label="Opções da publicação"
+                      className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+
+                    {isMenuOpen && (
+                      <div className="absolute right-0 top-10 z-30 w-52 rounded-2xl bg-[#141418] border border-zinc-700 p-1.5 shadow-2xl space-y-0.5 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSavedPosts((prev) => ({
+                              ...prev,
+                              [post.id]: !prev[post.id],
+                            }));
+                            setOpenMenuPostId(null);
+                            showToast(
+                              isSaved
+                                ? "Removido dos salvos"
+                                : "Publicação salva!"
+                            );
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-zinc-200 hover:bg-zinc-800 transition text-left"
+                        >
+                          <Bookmark className="w-3.5 h-3.5 text-[#087E96]" />
+                          <span>
+                            {isSaved
+                              ? "Remover dos salvos"
+                              : "Salvar publicação"}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSharePost(post.id);
+                            setOpenMenuPostId(null);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-zinc-200 hover:bg-zinc-800 transition text-left"
+                        >
+                          <Link2 className="w-3.5 h-3.5 text-[#087E96]" />
+                          <span>Copiar link</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHiddenPostIds((prev) => ({
+                              ...prev,
+                              [post.id]: true,
+                            }));
+                            setOpenMenuPostId(null);
+                            showToast("Publicação ocultada do seu feed.");
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-zinc-200 hover:bg-zinc-800 transition text-left"
+                        >
+                          <EyeOff className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>Não tenho interesse</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuPostId(null);
+                            showToast(
+                              "Denúncia registrada para análise da moderação."
+                            );
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-amber-300 hover:bg-zinc-800 transition text-left"
+                        >
+                          <Flag className="w-3.5 h-3.5" />
+                          <span>Denunciar publicação</span>
+                        </button>
+
+                        {post.author.id === user.id && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPosts((prev) =>
+                                prev.filter((item) => item.id !== post.id)
+                              );
+                              setOpenMenuPostId(null);
+                              showToast("Publicação excluída.");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-950/30 transition text-left"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Excluir publicação</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Card de Imagem / Banner Visual Real no Meio do Post */}
-                <FeedPostVisualMedia title={post.title} index={idx} />
+                {/* Texto/Legenda ACIMA da Área da Imagem (Estilo Twitter/X) */}
+                <div className="space-y-1.5">
+                  {post.title && (
+                    <h3 className="text-base font-extrabold text-white tracking-tight">
+                      {post.title}
+                    </h3>
+                  )}
+                  <p className="text-[15px] text-zinc-100 leading-relaxed whitespace-pre-line">
+                    {post.content}
+                  </p>
+                </div>
 
-                {/* Texto complementar da publicação */}
-                <p className="text-xs text-zinc-300 leading-relaxed px-1">
-                  {post.content}
-                </p>
+                {/* Placeholder de Mídia Moderno (Skeleton / Wireframe de Imagem) Abaixo do Texto */}
+                <PostMediaSkeleton label={post.title} />
 
                 {/* Enquete Interativa (quando houver enquete no post) */}
                 {poll && (
-                  <div className="rounded-2xl bg-[#111111] border border-zinc-800 p-4 space-y-2.5">
+                  <div className="rounded-2xl bg-[#121216] border border-zinc-800 p-4 space-y-2.5">
                     <p className="text-xs font-extrabold text-zinc-300">
                       Enquete da Comunidade — clique para votar:
                     </p>
@@ -868,8 +823,8 @@ export default function HomeFeedClient({
                   </div>
                 )}
 
-                {/* Ações do Post */}
-                <div className="pt-1 px-1 flex items-center justify-between text-xs text-zinc-400">
+                {/* Barra de Ações do Post: Curtir, Comentar, Compartilhar e Salvar/Favoritar à direita */}
+                <div className="pt-2 border-t border-zinc-800/70 flex items-center justify-between text-xs text-zinc-400">
                   <div className="flex items-center gap-6">
                     <button
                       type="button"
@@ -882,7 +837,7 @@ export default function HomeFeedClient({
                       className={`flex items-center gap-1.5 font-bold transition ${
                         isLiked
                           ? "text-pink-500"
-                          : "text-zinc-400 hover:text-white"
+                          : "text-zinc-400 hover:text-pink-400"
                       }`}
                     >
                       <Heart
@@ -894,35 +849,69 @@ export default function HomeFeedClient({
                     <button
                       type="button"
                       onClick={() => postInputRef.current?.focus()}
-                      className="flex items-center gap-1.5 font-bold hover:text-white transition"
+                      className="flex items-center gap-1.5 font-bold hover:text-cyan-400 transition"
                     >
                       <MessageCircle className="w-4 h-4" />
                       <span>Comentar</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSharePost(post.id)}
+                      className={`flex items-center gap-1.5 font-bold transition ${
+                        isCopied
+                          ? "text-emerald-400"
+                          : "text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>
+                        {isCopied ? "Link copiado!" : "Compartilhar"}
+                      </span>
+                    </button>
                   </div>
 
-                  <Link
-                    href="/vagas"
-                    className="flex items-center gap-1 text-[#087E96] hover:underline font-bold"
+                  {/* Botão Salvar / Favoritar alinhado à direita */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSavedPosts((prev) => ({
+                        ...prev,
+                        [post.id]: !prev[post.id],
+                      }));
+                      showToast(
+                        isSaved ? "Removido dos salvos" : "Publicação salva!"
+                      );
+                    }}
+                    title={isSaved ? "Salvo" : "Salvar publicação"}
+                    className={`flex items-center gap-1.5 font-bold transition ${
+                      isSaved
+                        ? "text-[#087E96]"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
                   >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Ver vagas</span>
-                  </Link>
+                    <Bookmark
+                      className={`w-4 h-4 ${
+                        isSaved ? "fill-[#087E96] text-[#087E96]" : ""
+                      }`}
+                    />
+                    <span>{isSaved ? "Salvo" : "Salvar"}</span>
+                  </button>
                 </div>
               </article>
             );
           })}
         </section>
 
-        {/* Pílulas Flutuantes "Para você" | "Perto de você" na Base do Feed (Fiel à Imagem 4) */}
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center rounded-full bg-white/85 backdrop-blur-md p-1 shadow-2xl border border-white/40">
+        {/* Seletor Flutuante "Para você | Perto de você" com Efeito Glassmorphism Real */}
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 rounded-full bg-white/15 backdrop-blur-md p-2 shadow-2xl border border-white/20">
           <button
             type="button"
             onClick={() => setFeedFilter("para-voce")}
-            className={`px-6 py-2 rounded-full text-xs font-extrabold transition ${
+            className={`px-7 py-2.5 rounded-full text-sm font-semibold transition ${
               feedFilter === "para-voce"
-                ? "bg-[#0066CC] text-white shadow"
-                : "text-zinc-800 hover:text-black"
+                ? "bg-[#0066CC] text-white shadow-lg"
+                : "text-white/90 hover:text-white hover:bg-white/10"
             }`}
           >
             Para você
@@ -930,10 +919,10 @@ export default function HomeFeedClient({
           <button
             type="button"
             onClick={() => setFeedFilter("perto")}
-            className={`px-6 py-2 rounded-full text-xs font-extrabold transition ${
+            className={`px-7 py-2.5 rounded-full text-sm font-semibold transition ${
               feedFilter === "perto"
-                ? "bg-[#0066CC] text-white shadow"
-                : "text-zinc-800 hover:text-black"
+                ? "bg-[#0066CC] text-white shadow-lg"
+                : "text-white/90 hover:text-white hover:bg-white/10"
             }`}
           >
             Perto de você
@@ -948,7 +937,7 @@ export default function HomeFeedClient({
             <div
               className={`bg-gradient-to-br ${
                 activeFlashcard.cardColor ||
-                "from-[#0052D4] via-[#1A6DFF] to-[#0077FF]"
+                "from-[#0052D4] via-[#1A6DFF] to-[#0096C7]"
               } p-6 text-white relative`}
             >
               <button

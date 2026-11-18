@@ -34,10 +34,11 @@ O **Heston** é uma plataforma web que centraliza oportunidades educacionais e p
 - **Cadastro de Vaga (Exclusivo `EMPRESA`):** Empresas logadas podem publicar novas oportunidades informando título, empresa, categoria, localização, remuneração/benefícios, descrição e cor do card.
 - **Inscrição Simplificada em 1 Clique (Exclusivo `USUARIO`):** Ao clicar em *"SAIBA MAIS"*, abre-se o modal com os detalhes completos da oportunidade e o botão de candidatura rápida, que grava a inscrição no banco de dados sem editais burocráticos. Empresas podem visualizar os candidatos inscritos em suas vagas.
 
-### 2.4. Explorar (`/explorar`), Notas (`/notas`) e Perfil (`/perfil`)
-- **Explorar:** Barra de pesquisa e filtros (*"Explore"*, *"Em Alta"*, *"Perto de Você"*) exibindo grid visual de conteúdos e dicas de carreira.
-- **Notas:** Interface de mensagens e comunidades com busca e abas de filtro (*"Mensagens"*, *"Comunidades"*, *"Favoritos"*, *"Não lidas"*). *Nota de escopo: No MVP, exibe conversas demonstrativas e permite registrar notas/recados rápidos.*
-- **Perfil:** Exibe os dados reais do usuário/empresa logado (Banner em gradiente, Nome, `@username`, contadores de seguidores/seguindo, título profissional, biografia, localização, painel de Análise de visitas/interações e cards *"Adicionar atividade"* / *"Adicionar portfólio"*), permitindo editar e salvar as informações do perfil no banco de dados.
+### 2.4. Explorar (`/explorar`), Notas (`/notas`), Perfil (`/perfil`) e Configurações Gerais
+- **Explorar:** Barra de pesquisa, filtros rápidos com botão expansível `"Mais +"` em cinza e grid amplo (15 cards) combinando tipografia limpa e placeholders modernos de mídia (`skeleton/shimmer`).
+- **Notas (Bate-papo & Comunidades):** Arquitetura dividida em dois centros principais via *Segmented Control*: **`💬 Bate-papo`** (conversas diretas individuais com subfiltros *Todas*, *Favoritos ⭐* e *Não lidas*) e **`🌐 Comunidades`** (grupos temáticos com chat coletivo, lista de participantes e subfiltros *Meus Grupos*, *Grupos Favoritos ⭐* e *Descoberta*).
+- **Perfil e Analytics:** Exibe os dados reais do usuário/empresa logado (Banner customizável, Avatar universal padrão ou foto personalizada, Nome, `@username`, contadores de seguidores/seguindo, botões `"Currículo"`, `"Interesses"` e `"Aprimorar perfil"`, cargo profissional em badge destacada com ícone `Briefcase`, biografia, localização, card interativo de **Análise dos últimos 30 dias** com modal de gráficos/estatísticas e cards `"Adicionar atividade"` / `"Adicionar portfólio"`), centralizando toda a edição no botão de lápis (`Pencil`) conectado ao banco Neon.
+- **Configurações Gerais (`Mais opções > Configurações`):** Modal amplo em estilo painel dividido nas abas *Sua Conta*, *Privacidade e Segurança*, *Notificações*, *Acessibilidade e Exibição* e *Sobre o Heston*.
 
 ---
 
